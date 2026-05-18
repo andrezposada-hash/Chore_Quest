@@ -3112,13 +3112,30 @@ function adjustKidStats(kid){
     const delta = round2(newBal - oldEarned);
     state.kids[kid].availableBalance = round2(Math.max(0, (state.kids[kid].availableBalance || 0) + delta));
   }
-  saveState(state); render(); populateAdjFields();
+  saveState(state); renderManageLists(); render(); populateAdjFields();
   showToast(`${kid==='wesley'?'Wesley':'Wyatt'}'s stats updated!`);
 }
 function manualReset(){
   if(!confirm('Reset today\'s completed chores for both kids?'))return;
   const today=todayStr();
+
+  // Reverse all points already awarded today (submitted=provisional, approved=final)
+  // before wiping the completion records, so totalPoints and earnings stay in sync.
+  ['wesley','wyatt'].forEach(kid=>{
+    const todayComps=state.completions[today]?.[kid]||{};
+    let toReverse=0;
+    Object.values(todayComps).forEach(comp=>{
+      if(!comp||typeof comp!=='object')return;
+      const st=compStatus(comp);
+      if(st==='submitted') toReverse+=(comp.submittedPts??comp.basePts??0);
+      if(st==='approved')  toReverse+=(comp.awardedPts??comp.pts??0);
+    });
+    state.kids[kid].totalPoints=Math.max(0,(state.kids[kid].totalPoints||0)-toReverse);
+  });
+
   if(state.completions[today])delete state.completions[today];
+
+  ['wesley','wyatt'].forEach(kid=>recalcMonthlyEarnings(kid));
   saveState(state); renderManageLists(); render();
   showToast('Chores reset! Fresh start 🌅');
 }
