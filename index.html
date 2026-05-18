@@ -382,6 +382,77 @@
   /* ── Toast ── */
   .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px); background: linear-gradient(90deg, #43e97b, #38f9d7); color: #1a1a2e; font-weight: 800; padding: 12px 28px; border-radius: 99px; font-size: 0.95rem; z-index: 200; transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; max-width: 90vw; text-align: center; }
   .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ══════════════════════════════════════════
+     MOBILE OPTIMIZATIONS
+  ══════════════════════════════════════════ */
+  @media (max-width: 480px) {
+    /* Prevent iOS auto-zoom on input focus */
+    input, select, textarea { font-size: 16px !important; }
+
+    /* Header — stack parent button below title */
+    header { padding-top: 8px; padding-bottom: 8px; }
+    #parent-btn { position: static; display: block; margin: 10px auto 0; width: fit-content; font-size: 0.8rem; padding: 7px 16px; }
+
+    /* Overlays — scroll from top, cover full screen */
+    .overlay { align-items: flex-start; overflow-y: auto; overflow-x: hidden; padding: 0; -webkit-overflow-scrolling: touch; }
+    .modal { max-height: none; border-radius: 0; margin: 0; width: 100%; max-width: 100%; padding: 20px 16px 40px; min-height: 100vh; }
+    .modal-close { position: sticky; top: 0; float: right; z-index: 10; background: rgba(26,26,46,0.9); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+
+    /* Stat boxes — tighter on small screens */
+    .stat-box { padding: 7px 4px; }
+    .stat-box .val { font-size: 1rem; }
+    .stat-box.money .val { font-size: 0.85rem; }
+    .stat-box .lbl { font-size: 0.52rem; letter-spacing: 0; }
+
+    /* Chore list — bigger tap targets */
+    .chore-item { padding: 12px 10px; min-height: 52px; }
+    .chore-check { width: 30px; height: 30px; min-width: 30px; border-radius: 8px; flex-shrink: 0; }
+    .chore-name { font-size: 0.95rem; }
+    .diff-badge { display: none; } /* hide difficulty badge to save space */
+    .chore-pts { font-size: 0.75rem; white-space: nowrap; }
+
+    /* Settings chore rows — wrap controls */
+    .manage-item { flex-wrap: wrap; row-gap: 8px; }
+    .manage-item > span:first-child { width: 100%; font-weight: 600; }
+    .chore-input-lbl { font-size: 0.78rem; }
+    .chore-pts-input, .chore-dlr-input { width: 56px; }
+    .chore-diff-select { font-size: 0.78rem; padding: 4px 6px; }
+    .del-btn { margin-left: auto; }
+
+    /* Form rows — stack vertically */
+    .form-row { flex-direction: column; }
+    .form-row input[type="text"], .form-row input[type="number"] { width: 100%; }
+    #new-chore-name, #new-reward-name { width: 100%; }
+
+    /* Point value info row */
+    .point-value-row { flex-wrap: wrap; gap: 3px; font-size: 0.65rem; }
+
+    /* Money dashboard table */
+    .money-table { font-size: 0.75rem; }
+    .money-table th, .money-table td { padding: 6px 4px; }
+
+    /* Approval queue */
+    .pct-row { gap: 4px; }
+    .pct-btn { font-size: 0.7rem; padding: 6px 6px; }
+
+    /* Day stats overlay */
+    #day-stats-overlay.open { display: flex; }
+
+    /* Weekly chart */
+    .weekly-chart { overflow-x: auto; }
+
+    /* Piggy bank — slightly smaller */
+    .piggy-main-svg { max-height: 130px; }
+    .piggy-big-amt { font-size: 1.2rem; }
+
+    /* Reward cards — full width scroll on mobile already handled */
+    .reward-card .reward-name { font-size: 0.78rem; }
+
+    /* Buttons — bigger tap area */
+    .btn { padding: 10px 18px; font-size: 0.85rem; }
+    .btn-approve, .btn-sendback { padding: 10px 14px; font-size: 0.82rem; }
+  }
 </style>
 </head>
 <body>
@@ -1884,7 +1955,7 @@ function showDayStats(dateStr, focusKid) {
     body.appendChild(section);
   });
 
-  document.getElementById('day-stats-overlay').classList.add('open');
+  openOverlay('day-stats-overlay');
 }
 
 function stepDay(delta) {
@@ -1908,7 +1979,7 @@ function openDayEdit() {
   document.getElementById('pin-context-msg').textContent = 'Enter parent PIN to edit this day\'s chores.';
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-error').textContent = '';
-  ov.classList.add('open');
+  openOverlay(ov.id);
   setTimeout(() => document.getElementById('pin-input').focus(), 100);
 }
 
@@ -2363,7 +2434,7 @@ function requestUncheck(kid,choreId,points,isBonus){
   document.getElementById('pin-context-msg').textContent='Enter parent PIN to uncheck this chore.';
   document.getElementById('pin-input').value='';
   document.getElementById('pin-error').textContent='';
-  ov.classList.add('open');
+  openOverlay(ov.id);
   setTimeout(()=>document.getElementById('pin-input').focus(),100);
 }
 function doUncheck(kid,choreId,points,isBonus){
@@ -2390,7 +2461,7 @@ function openParentPanel(){
   document.getElementById('pin-context-msg').textContent='Enter your 4-digit PIN to manage chores and rewards.';
   document.getElementById('pin-input').value='';
   document.getElementById('pin-error').textContent='';
-  ov.classList.add('open');
+  openOverlay(ov.id);
   setTimeout(()=>document.getElementById('pin-input').focus(),100);
 }
 function checkPin(){
@@ -2410,7 +2481,7 @@ function checkPin(){
   }else{
     renderManageLists();
     selectPayoutKid('wesley');
-    document.getElementById('parent-overlay').classList.add('open');
+    openOverlay('parent-overlay');
   }
 }
 function cancelPin(){pendingUncheck=null;closeOverlay('pin-overlay');}
@@ -2518,7 +2589,7 @@ function openRedeem(rewardId){
   const yCan=getAvailablePoints('wyatt')>=r.cost;
   selectRedeemKid(wCanPts?'wesley':(yCan?'wyatt':'wesley'));
   setPayMethod('points');
-  document.getElementById('redeem-overlay').classList.add('open');
+  openOverlay('redeem-overlay');
 }
 function selectRedeemKid(kid){
   pendingRedeemKid=kid;
@@ -2631,7 +2702,16 @@ function resetFamilyChallenge(){
 // ══════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════
-function closeOverlay(id){document.getElementById(id).classList.remove('open');}
+function closeOverlay(id){
+  document.getElementById(id).classList.remove('open');
+  // Re-enable body scroll if no other overlays are open
+  const anyOpen = document.querySelector('.overlay.open');
+  if (!anyOpen) document.body.style.overflow = '';
+}
+function openOverlay(id){
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
 let toastTimer;
 function showToast(msg){
   const t=document.getElementById('toast');
