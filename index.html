@@ -322,6 +322,8 @@
   .manage-list { list-style: none; }
   .manage-item { display: flex; align-items: center; padding: 8px 10px; border-radius: 10px; margin-bottom: 4px; background: rgba(255,255,255,0.04); font-size: 0.85rem; gap: 6px; flex-wrap: wrap; }
   .manage-item span { flex: 1; min-width: 50px; }
+  .chore-name-edit { flex: 2; min-width: 110px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; color: #cdd6f4; font-size: 0.85rem; padding: 4px 8px; outline: none; }
+  .chore-name-edit:focus { border-color: rgba(102,126,234,0.6); background: rgba(102,126,234,0.1); }
   .manage-item .badge { background: rgba(249,212,35,0.15); color: #f9d423; border-radius: 20px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; flex: 0; }
   .manage-item .badge-green { background: rgba(67,233,123,0.12); color: #43e97b; border-radius: 20px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; flex: 0; }
   .del-btn { background: rgba(255,78,80,0.2); border: none; color: #ff6b6b; border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -417,6 +419,7 @@
     /* Settings chore rows — wrap controls */
     .manage-item { flex-wrap: wrap; row-gap: 8px; }
     .manage-item > span:first-child { width: 100%; font-weight: 600; }
+    .chore-name-edit { width: 100%; font-size: 0.9rem; }
     .chore-input-lbl { font-size: 0.78rem; }
     .chore-pts-input, .chore-dlr-input { width: 56px; }
     .chore-diff-select { font-size: 0.78rem; padding: 4px 6px; }
@@ -2439,7 +2442,7 @@ function renderManageLists() {
     const diff=c.difficulty||'easy';
     const li=document.createElement('li'); li.className='manage-item';
     li.innerHTML=`
-      <span>${c.name}</span>
+      <input class="chore-name-edit" type="text" value="${c.name.replace(/"/g,'&quot;')}" data-field="name" placeholder="Chore name…">
       <select class="chore-diff-select" data-field="assignedTo">
         <option value="both"   ${c.assignedTo==='both'   ?'selected':''}>Both</option>
         <option value="wesley" ${c.assignedTo==='wesley' ?'selected':''}>Wesley</option>
@@ -2453,6 +2456,14 @@ function renderManageLists() {
         <option value="hard"  ${diff==='hard'  ?'selected':''}>Hard</option>
       </select>
       <button class="del-btn" onclick="deleteChore(${c.id})">🗑</button>`;
+    li.querySelector('[data-field="name"]').addEventListener('blur', e => {
+      const newName = e.target.value.trim();
+      if (newName) updateChore(c.id, 'name', newName);
+      else e.target.value = c.name; // revert if empty
+    });
+    li.querySelector('[data-field="name"]').addEventListener('keydown', e => {
+      if (e.key === 'Enter') e.target.blur();
+    });
     li.querySelector('[data-field="assignedTo"]').addEventListener('change', e => updateChore(c.id, 'assignedTo', e.target.value));
     li.querySelector('[data-field="dollars"]').addEventListener('change', e => updateChore(c.id, 'dollars', round2(parseFloat(e.target.value)||0)));
     li.querySelector('[data-field="difficulty"]').addEventListener('change', e => {
