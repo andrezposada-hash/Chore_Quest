@@ -60,7 +60,9 @@
   .kid-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
   .kid-avatar:hover::after { content: '📷'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: rgba(0,0,0,0.45); border-radius: 50%; }
   .kid-info h2 { font-size: 1.3rem; font-weight: 700; }
-  .level-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; margin-top: 2px; color: #f9d423; font-weight: 600; }
+  .level-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 3px 10px; font-size: 0.72rem; margin-top: 2px; color: #f9d423; font-weight: 700; max-width: 100%; }
+  .rank-abbr { font-weight: 900; letter-spacing: 0.03em; }
+  .rank-name { font-weight: 400; color: #aab4d4; font-size: 0.68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
 
   /* ── Points Row — 4-column grid ── */
   .points-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-bottom: 10px; }
@@ -1048,13 +1050,45 @@
 // ══════════════════════════════════════════
 //  CONSTANTS
 // ══════════════════════════════════════════
+const PRESTIGE_MAX = 19000;
 const LEVELS = [
-  { name:'⭐ Beginner', min:0    },
-  { name:'🌟 Helper',   min:100  },
-  { name:'💫 Pro',      min:300  },
-  { name:'🏆 Champion', min:600  },
-  { name:'👑 Legend',   min:1000 },
+  { name:'Recruit',                       abbr:'Rct',          min:0     },
+  { name:'Private',                       abbr:'Pvt',          min:50    },
+  { name:'Private First Class',           abbr:'PFC',          min:150   },
+  { name:'Lance Corporal',                abbr:'LCpl',         min:275   },
+  { name:'Corporal',                      abbr:'Cpl',          min:450   },
+  { name:'Sergeant',                      abbr:'Sgt',          min:675   },
+  { name:'Staff Sergeant',                abbr:'SSgt',         min:950   },
+  { name:'Gunnery Sergeant',              abbr:'GySgt',        min:1250  },
+  { name:'First Sergeant',                abbr:'1stSgt',       min:1600  },
+  { name:'Master Sergeant',               abbr:'MSgt',         min:2000  },
+  { name:'Sergeant Major',                abbr:'SgtMaj',       min:2450  },
+  { name:'Master Gunnery Sergeant',       abbr:'MGySgt',       min:2925  },
+  { name:'SgtMaj of the Marine Corps',    abbr:'SgtMajMarCor', min:3450  },
+  { name:'Warrant Officer',               abbr:'WO1',          min:4025  },
+  { name:'Chief Warrant Officer 2',       abbr:'CWO2',         min:4625  },
+  { name:'Chief Warrant Officer 3',       abbr:'CWO3',         min:5275  },
+  { name:'Chief Warrant Officer 4',       abbr:'CWO4',         min:5975  },
+  { name:'Chief Warrant Officer 5',       abbr:'CWO5',         min:6725  },
+  { name:'Second Lieutenant',             abbr:'2ndLt',        min:7500  },
+  { name:'First Lieutenant',              abbr:'1stLt',        min:8325  },
+  { name:'Captain',                       abbr:'Capt',         min:9200  },
+  { name:'Major',                         abbr:'Maj',          min:10100 },
+  { name:'Lieutenant Colonel',            abbr:'LtCol',        min:11050 },
+  { name:'Colonel',                       abbr:'Col',          min:12050 },
+  { name:'Brigadier General',             abbr:'BGen',         min:13100 },
+  { name:'Major General',                 abbr:'MajGen',       min:14175 },
+  { name:'Lieutenant General',            abbr:'LtGen',        min:15300 },
+  { name:'General',                       abbr:'Gen',          min:16475 },
+  { name:'Commandant of the Marine Corps',abbr:'CMC',          min:17700 },
+  { name:'Five-Star Marine',              abbr:'PRESTIGE',     min:19000 },
 ];
+function toRoman(n) {
+  if (!n || n < 1) return '';
+  const v=[1000,900,500,400,100,90,50,40,10,9,5,4,1];
+  const s=['M','CM','D','CD','C','XC','L','XL','X','IX','V','IV','I'];
+  let r=''; v.forEach((val,i)=>{while(n>=val){r+=s[i];n-=val;}}); return r;
+}
 
 const DEFAULT_CHORES = [
   { id:1, name:'Make Bed',           points:5,  dollars:0, assignedTo:'both',   difficulty:'easy',   timeOfDay:'morning'   },
@@ -1358,17 +1392,27 @@ function getState(rawData) {
 // ══════════════════════════════════════════
 let state;
 
-function getLevel(pts) {
-  let lvl = LEVELS[0];
-  for (const l of LEVELS) { if (pts>=l.min) lvl=l; }
-  return lvl;
+function getRankInfo(totalPts) {
+  const prestige    = Math.floor(totalPts / PRESTIGE_MAX);
+  const effectivePts= totalPts % PRESTIGE_MAX;
+  let cur=LEVELS[0], curIdx=0;
+  for (let i=0;i<LEVELS.length;i++) { if (effectivePts>=LEVELS[i].min){cur=LEVELS[i];curIdx=i;} }
+  const next = LEVELS[curIdx+1] || null;
+  return { cur, next, curIdx, prestige, effectivePts };
 }
+// Legacy alias so old call-sites don't break
+function getLevel(pts) { return getRankInfo(pts).cur; }
 function getXpProgress(pts) {
-  let cur=LEVELS[0], next=null;
-  for (let i=0;i<LEVELS.length;i++) { if (pts>=LEVELS[i].min){cur=LEVELS[i];next=LEVELS[i+1]||null;} }
-  if (!next) return {pct:100,label:'MAX LEVEL'};
-  const range=next.min-cur.min, progress=pts-cur.min;
-  return {pct:Math.round((progress/range)*100), label:`${progress}/${range} to ${next.name}`};
+  const { cur, next, prestige, effectivePts } = getRankInfo(pts);
+  if (!next) {
+    // At max rank — fill to end of prestige loop
+    const progress = effectivePts - cur.min;
+    const range    = PRESTIGE_MAX - cur.min;
+    return { pct:100, label: prestige ? `🦅 PRESTIGE ${toRoman(prestige)} — MAX` : 'MAX RANK' };
+  }
+  const range    = next.min - cur.min;
+  const progress = effectivePts - cur.min;
+  return { pct: Math.round((progress/range)*100), label:`${progress}/${range} to ${next.abbr}` };
 }
 function getTodayPoints(kid) {
   const comps = state.completions[todayStr()]?.[kid] || {};
@@ -1547,6 +1591,19 @@ function checkAchievements(kid) {
   if(prevEarned.has('team_player')) newEarned.push('team_player');
   kd.achievements=newEarned;
   if(toasts.length) setTimeout(()=>showToast(toasts[0]),1500);
+
+  // ── Rank-up detection ──
+  const { curIdx:newRankIdx, prestige:newPrestige } = getRankInfo(pts);
+  const prevRankIdx   = kd.lastRankIdx   ?? newRankIdx;
+  const prevPrestige  = kd.lastPrestige  ?? newPrestige;
+  const rankChanged   = newRankIdx > prevRankIdx || newPrestige > prevPrestige;
+  kd.lastRankIdx  = newRankIdx;
+  kd.lastPrestige = newPrestige;
+  if (rankChanged && initialized) {
+    const { cur } = getRankInfo(pts);
+    const label = newPrestige > 0 ? `🦅 PRESTIGE ${toRoman(newPrestige)} — ${cur.name}` : cur.name;
+    setTimeout(() => triggerLevelUpCelebration(kid, { name: label }), 400);
+  }
 }
 
 // ══════════════════════════════════════════
@@ -1676,10 +1733,19 @@ function renderKid(kid) {
   const comps=state.completions[today]?.[kid]||{};
   const kd=state.kids[kid];
   const totalPts=kd.totalPoints||0, todayPts=getTodayPoints(kid);
-  const streak=kd.streak||0, level=getLevel(totalPts), xp=getXpProgress(totalPts);
+  const streak=kd.streak||0, xp=getXpProgress(totalPts);
+  const { cur:rank, prestige } = getRankInfo(totalPts);
   const chores=state.chores.filter(c=>c.assignedTo==='both'||c.assignedTo===kid);
 
-  document.getElementById(`level-${kid}`).textContent=level.name;
+  // Rank badge: "🦅 II — Gen" (prestige) or "Pvt · Private" (normal)
+  const badgeEl = document.getElementById(`level-${kid}`);
+  if (prestige > 0) {
+    badgeEl.innerHTML = `🦅 ${toRoman(prestige)} &mdash; ${rank.abbr}`;
+    badgeEl.title = `PRESTIGE ${toRoman(prestige)} — ${rank.name}`;
+  } else {
+    badgeEl.innerHTML = `<span class="rank-abbr">${rank.abbr}</span><span class="rank-name">${rank.name}</span>`;
+    badgeEl.title = rank.name;
+  }
   document.getElementById(`total-pts-${kid}`).textContent=totalPts;
 
   if(initialized&&todayPts!==prevTodayPts[kid]){animateCounter(`today-pts-${kid}`,prevTodayPts[kid],todayPts,600);}
