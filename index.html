@@ -1287,18 +1287,24 @@ function getMonthlyCompletionRate(stateObj, kid, month) {
 // Returns today's chore completion % for a kid (0-100), approved only
 function getDailyPct(kid, dateStr) {
   const comps  = (state.completions[dateStr] || {})[kid] || {};
-  const chores = state.chores.filter(c => c.assignedTo==='both' || c.assignedTo===kid);
+  // Only count chores that are scheduled for this specific date
+  const chores = state.chores.filter(c =>
+    (c.assignedTo === 'both' || c.assignedTo === kid) && choreAppliesToday(c, dateStr)
+  );
   if (!chores.length) return 0;
-  let credit = 0;
+  // Points-weighted: earned pts / total pts × 100 (per spec)
+  const totalPts = chores.reduce((s, c) => s + (c.points || 0), 0);
+  if (!totalPts) return 0;
+  let earnedPts = 0;
   chores.forEach(c => {
     const comp = comps[String(c.id)];
-    if (!comp || compStatus(comp) !== 'approved') return; // 0 credit
+    if (!comp || compStatus(comp) !== 'approved') return;
     const base    = comp.basePts || 0;
     const awarded = comp.awardedPts ?? comp.pts ?? base;
-    // Fractional credit: half-approved counts as 0.5, full = 1, legacy basePts=0 = 1
-    credit += base > 0 ? awarded / base : 1;
+    // Partial approval: scale proportionally by chore's point value
+    earnedPts += base > 0 ? (awarded / base) * (c.points || 0) : (c.points || 0);
   });
-  return Math.round((credit / chores.length) * 100);
+  return Math.round((earnedPts / totalPts) * 100);
 }
 
 // Returns qualifying days vs total days in the month (not just elapsed)
