@@ -141,11 +141,7 @@
   .chore-item.submitted .chore-check { border-color: rgba(255,200,50,0.35); background: rgba(255,200,50,0.08); font-size: 0.85rem; }
   .chore-item.partial-done .chore-check { border-color: rgba(67,233,123,0.6); } /* fill set via inline style per actual pct */
   .chore-name { flex: 1; font-size: 0.9rem; font-weight: 500; transition: all 0.2s; }
-  .chore-item.done .chore-name { text-decoration: line-through; }
-  .chore-item.done .chore-name .chore-parent-note,
-  .chore-item.done .chore-name .chore-approval-meta,
-  .chore-item.done .chore-name .chore-sendback-note,
-  .chore-item.done .chore-name .bonus-tag { text-decoration: none; }
+  .chore-item.done .chore-name-text { text-decoration: line-through; }
   .chore-item.partial-done .chore-name { text-decoration: none; }
   .chore-item.submitted .chore-name { color: #7a84a0; }
   .chore-resubmit-hint { display: block; font-size: 0.62rem; color: #5a9e75; font-style: italic; margin-top: 2px; }
@@ -1740,7 +1736,7 @@ function renderKid(kid) {
     if(status==='submitted'){
       const displayPts = comp?.basePts ?? bonusPts;
       li.className='chore-item submitted';
-      li.innerHTML=`<div class="chore-check">🕐</div><span class="chore-name">${c.name}${bonusBadge}<span class="chore-awaiting">Awaiting Approval</span></span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts pending">+${displayPts}pts</span>`;
+      li.innerHTML=`<div class="chore-check">🕐</div><span class="chore-name"><span class="chore-name-text">${c.name}</span>${bonusBadge}<span class="chore-awaiting">Awaiting Approval</span></span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts pending">+${displayPts}pts</span>`;
     } else if(status==='approved'){
       const awarded   = comp?.awardedPts ?? comp?.pts ?? bonusPts;
       const base      = comp?.basePts ?? bonusPts;
@@ -1759,11 +1755,11 @@ function renderKid(kid) {
         const fillPct = base > 0 ? Math.round((awarded / base) * 100) : 100;
         const checkStyle = `background:linear-gradient(to top,#43e97b ${fillPct}%,rgba(255,255,255,0.04) ${fillPct}%);border-color:rgba(67,233,123,${fillPct>=75?'0.85':fillPct>=50?'0.65':'0.45'})`;
         li.className='chore-item partial-done';
-        li.innerHTML=`<div class="chore-check" style="${checkStyle}"></div><span class="chore-name">${c.name}${bonusBadge}${metaHTML}</span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts">${awarded}/${base}pts</span>`;
+        li.innerHTML=`<div class="chore-check" style="${checkStyle}"></div><span class="chore-name"><span class="chore-name-text">${c.name}</span>${bonusBadge}${metaHTML}</span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts">${awarded}/${base}pts</span>`;
         li.addEventListener('click',()=>resubmitChore(kid,c.id,false));
       } else {
         li.className='chore-item done';
-        li.innerHTML=`<div class="chore-check">✓</div><span class="chore-name">${c.name}${bonusBadge}${metaHTML}</span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts">+${awarded}pts</span>`;
+        li.innerHTML=`<div class="chore-check">✓</div><span class="chore-name"><span class="chore-name-text">${c.name}</span>${bonusBadge}${metaHTML}</span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts">+${awarded}pts</span>`;
         li.addEventListener('click',()=>requestUncheck(kid,c.id,c.points,false));
       }
     } else {
@@ -1773,7 +1769,7 @@ function renderKid(kid) {
         ? `<span class="chore-sendback-note">↩ ${sbNote || 'Sent back — please redo'}</span>`
         : '';
       li.className = 'chore-item' + (isSentBack ? ' sent-back' : '') + (isBonus ? ' bonus-highlight' : '');
-      li.innerHTML=`<div class="chore-check"></div><span class="chore-name">${c.name}${bonusBadge}${noteHTML}</span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts">+${bonusPts}pts</span>`;
+      li.innerHTML=`<div class="chore-check"></div><span class="chore-name"><span class="chore-name-text">${c.name}</span>${bonusBadge}${noteHTML}</span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts">+${bonusPts}pts</span>`;
       li.addEventListener('click',()=>toggleChore(kid,c.id,bonusPts,false));
     }
     list.appendChild(li);
