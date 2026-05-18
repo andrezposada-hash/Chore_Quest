@@ -1450,6 +1450,41 @@ function getState(rawData) {
   // Migrate PIN
   if (/^\d{4}$/.test(s.pin)) s.pin = encodePin(s.pin);
 
+  // ── UTC→Local date fix (one-time migration) ──────────────────────────────
+  // Old todayStr() used toISOString() (UTC). In US timezones, evening submissions
+  // (e.g. 9 PM local May 17) were stored under the UTC date "2026-05-18".
+  // Now todayStr() uses local date, so those stale records appear as "today".
+  // Fix: if ALL completions under today's key have timestamps before local midnight,
+  // they belong to yesterday — clear them so today's board is a fresh start.
+  // (Points already credited to totalPoints are kept; kids earned them.)
+  {
+    const localMidnight = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+    const todayBucket   = s.completions && s.completions[today];
+    if (todayBucket) {
+      ['wesley','wyatt'].forEach(kid => {
+        const kidComps = todayBucket[kid];
+        if (!kidComps || typeof kidComps !== 'object') return;
+        const ids = Object.keys(kidComps);
+        if (!ids.length) return;
+        const allStale = ids.every(cid => {
+          const c = kidComps[cid];
+          if (!c || typeof c !== 'object') return false;
+          const ts = c.submittedAt || c.approvedAt || c.sentBackAt || 0;
+          return ts > 0 && ts < localMidnight;
+        });
+        if (allStale) delete todayBucket[kid];
+      });
+      if (Object.keys(todayBucket).length === 0) delete s.completions[today];
+    }
+    // Also force the daily-reset to re-run for yesterday if it was stamped with a UTC
+    // date that equals today's local date (reset was skipped because keys matched).
+    if (s.lastResetDate === today && !s.completions[today]) {
+      // Completions were cleared above → yesterday's reset was never processed.
+      // Walk back one day so the streak/jackpot logic runs correctly.
+      s.lastResetDate = localDateStr(new Date(localMidnight - 1)); // = yesterday
+    }
+  }
+
   // ── Daily reset ──
   if (s.lastResetDate !== today) {
     const prevDate  = s.lastResetDate;
