@@ -1246,8 +1246,16 @@ function checkPinMatch(entered) {
 // ══════════════════════════════════════════
 //  DATE / MONEY HELPERS
 // ══════════════════════════════════════════
-function todayStr() { return new Date().toISOString().slice(0,10); }
-function monthStr()  { return new Date().toISOString().slice(0,7);  }
+function localDateStr(d) {
+  // Use local calendar date, NOT UTC (toISOString returns UTC and can be off by a day in US timezones)
+  d = d || new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function todayStr() { return localDateStr(); }
+function monthStr()  { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 function fmt$(n)     { return '$' + (n||0).toFixed(2); }
 function round2(n)   { return Math.round(n * 100) / 100; }
 
@@ -1642,7 +1650,7 @@ function getWeeklyPoints(kid) {
   const labels=['S','M','T','W','T','F','S'];
   return Array.from({length:7},(_,i)=>{
     const d=new Date(); d.setDate(d.getDate()-(6-i));
-    const dStr=d.toISOString().slice(0,10);
+    const dStr=localDateStr(d);
     const comps=state.completions[dStr]?.[kid]||{};
     let pts=state.chores.filter(c=>(c.assignedTo==='both'||c.assignedTo===kid)&&isApprovedComp(comps[String(c.id)])).reduce((s,c)=>{ const comp=comps[String(c.id)]; return s+(comp?.awardedPts??comp?.pts??c.points); },0);
     return {label:labels[d.getDay()],pts,dateStr:dStr};
@@ -2349,7 +2357,7 @@ function renderWeeklyChart(kid) {
 function offsetDate(dateStr, days) {
   const d = new Date(dateStr + 'T12:00:00');
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
 
 function showDayStats(dateStr, focusKid) {
