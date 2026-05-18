@@ -142,6 +142,8 @@
   .chore-item.partial-done .chore-check { border-color: rgba(67,233,123,0.6); } /* fill set via inline style per actual pct */
   .chore-name { flex: 1; font-size: 0.9rem; font-weight: 500; transition: all 0.2s; }
   .chore-item.done .chore-name-text { text-decoration: line-through; }
+  .chore-section-hdr { list-style: none; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #7b88b8; padding: 10px 4px 4px; margin-top: 4px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .chore-section-hdr:first-child { margin-top: 0; padding-top: 4px; }
   .chore-item.partial-done .chore-name { text-decoration: none; }
   .chore-item.submitted .chore-name { color: #7a84a0; }
   .chore-resubmit-hint { display: block; font-size: 0.62rem; color: #5a9e75; font-style: italic; margin-top: 2px; }
@@ -890,6 +892,11 @@
           <option value="medium">Medium — 10 pts</option>
           <option value="hard">Hard — 20 pts</option>
         </select>
+        <select id="new-chore-time">
+          <option value="morning">🌅 Morning</option>
+          <option value="afternoon">☀️ Afternoon</option>
+          <option value="evening">🌙 Evening</option>
+        </select>
         <button class="btn btn-add" onclick="addChore()">Add</button>
       </div>
     </section>
@@ -1050,14 +1057,19 @@ const LEVELS = [
 ];
 
 const DEFAULT_CHORES = [
-  { id:1, name:'Make Bed',           points:5,  dollars:0, assignedTo:'both',   difficulty:'easy'   },
-  { id:2, name:'Brush Teeth (AM)',   points:5,  dollars:0, assignedTo:'both',   difficulty:'easy'   },
-  { id:3, name:'Brush Teeth (PM)',   points:5,  dollars:0, assignedTo:'both',   difficulty:'easy'   },
-  { id:4, name:'Clean Room',         points:10, dollars:0, assignedTo:'both',   difficulty:'medium' },
-  { id:5, name:'Do Homework',        points:20, dollars:0, assignedTo:'both',   difficulty:'hard'   },
-  { id:6, name:'Set the Table',      points:5,  dollars:0, assignedTo:'both',   difficulty:'easy'   },
-  { id:7, name:'Take Out Trash',     points:10, dollars:0, assignedTo:'wesley', difficulty:'medium' },
-  { id:8, name:'Feed the Pet',       points:5,  dollars:0, assignedTo:'wyatt',  difficulty:'easy'   },
+  { id:1, name:'Make Bed',           points:5,  dollars:0, assignedTo:'both',   difficulty:'easy',   timeOfDay:'morning'   },
+  { id:2, name:'Brush Teeth (AM)',   points:5,  dollars:0, assignedTo:'both',   difficulty:'easy',   timeOfDay:'morning'   },
+  { id:3, name:'Brush Teeth (PM)',   points:5,  dollars:0, assignedTo:'both',   difficulty:'easy',   timeOfDay:'evening'   },
+  { id:4, name:'Clean Room',         points:10, dollars:0, assignedTo:'both',   difficulty:'medium', timeOfDay:'morning'   },
+  { id:5, name:'Do Homework',        points:20, dollars:0, assignedTo:'both',   difficulty:'hard',   timeOfDay:'afternoon' },
+  { id:6, name:'Set the Table',      points:5,  dollars:0, assignedTo:'both',   difficulty:'easy',   timeOfDay:'evening'   },
+  { id:7, name:'Take Out Trash',     points:10, dollars:0, assignedTo:'wesley', difficulty:'medium', timeOfDay:'morning'   },
+  { id:8, name:'Feed the Pet',       points:5,  dollars:0, assignedTo:'wyatt',  difficulty:'easy',   timeOfDay:'morning'   },
+];
+const TIME_SECTIONS = [
+  { key:'morning',   label:'🌅 Morning',   },
+  { key:'afternoon', label:'☀️ Afternoon', },
+  { key:'evening',   label:'🌙 Evening',   },
 ];
 
 const DEFAULT_REWARDS = [
@@ -1250,10 +1262,10 @@ function getState(rawData) {
     // avatar is optional — undefined means show default emoji
   });
 
-  // Migrate chores — add difficulty if missing, sync points to DIFF_PTS rule
+  // Migrate chores — add difficulty if missing, sync points to DIFF_PTS rule, default timeOfDay
   s.chores = s.chores.map(c => {
     const diff = c.difficulty || 'easy';
-    return { difficulty:'easy', dollars:0, ...c, difficulty:diff, points: DIFF_PTS[diff] || 5 };
+    return { difficulty:'easy', dollars:0, timeOfDay:'morning', ...c, difficulty:diff, points: DIFF_PTS[diff] || 5 };
   });
 
   // Migrate rewards — add dollars if missing
@@ -1720,10 +1732,17 @@ function renderKid(kid) {
   const bonusChore = getBonusMission(kid, today);
   const bonusChoreId = bonusChore ? String(bonusChore.id) : null;
 
-  // ── Regular chores (bonus highlighted inline) ──
+  // ── Regular chores grouped by time of day ──
   const list=document.getElementById(`chores-${kid}`);
   list.innerHTML='';
-  chores.forEach(c=>{
+  TIME_SECTIONS.forEach(section => {
+    const sectionChores = chores.filter(c => (c.timeOfDay || 'morning') === section.key);
+    if (!sectionChores.length) return;
+    const hdr = document.createElement('li');
+    hdr.className = 'chore-section-hdr';
+    hdr.textContent = section.label;
+    list.appendChild(hdr);
+    sectionChores.forEach(c=>{
     const comp=comps[String(c.id)];
     const status=compStatus(comp);
     const diff=c.difficulty||'easy';
@@ -1772,8 +1791,9 @@ function renderKid(kid) {
       li.innerHTML=`<div class="chore-check"></div><span class="chore-name"><span class="chore-name-text">${c.name}</span>${bonusBadge}${noteHTML}</span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts">+${bonusPts}pts</span>`;
       li.addEventListener('click',()=>toggleChore(kid,c.id,bonusPts,false));
     }
-    list.appendChild(li);
-  });
+      list.appendChild(li);
+    }); // end sectionChores.forEach
+  }); // end TIME_SECTIONS.forEach
 
   const anyDone=chores.some(c=>isApprovedComp(comps[String(c.id)]));
   const allDone=chores.length>0&&chores.every(c=>isApprovedComp(comps[String(c.id)]));
@@ -2448,6 +2468,11 @@ function renderManageLists() {
         <option value="wesley" ${c.assignedTo==='wesley' ?'selected':''}>Wesley</option>
         <option value="wyatt"  ${c.assignedTo==='wyatt'  ?'selected':''}>Wyatt</option>
       </select>
+      <select class="chore-diff-select" data-field="timeOfDay">
+        <option value="morning"   ${(c.timeOfDay||'morning')==='morning'   ?'selected':''}>🌅 Morning</option>
+        <option value="afternoon" ${(c.timeOfDay||'morning')==='afternoon' ?'selected':''}>☀️ Afternoon</option>
+        <option value="evening"   ${(c.timeOfDay||'morning')==='evening'   ?'selected':''}>🌙 Evening</option>
+      </select>
       <label class="chore-input-lbl"><span>pts</span><input class="chore-pts-input" type="number" min="1" max="999" step="1"  value="${c.points}"             data-field="points"></label>
       <label class="chore-input-lbl"><span>$</span>  <input class="chore-dlr-input" type="number" min="0" max="9.99" step="0.05" value="${(c.dollars||0).toFixed(2)}" data-field="dollars"></label>
       <select class="chore-diff-select" data-field="difficulty">
@@ -2465,6 +2490,7 @@ function renderManageLists() {
       if (e.key === 'Enter') e.target.blur();
     });
     li.querySelector('[data-field="assignedTo"]').addEventListener('change', e => updateChore(c.id, 'assignedTo', e.target.value));
+    li.querySelector('[data-field="timeOfDay"]').addEventListener('change', e => updateChore(c.id, 'timeOfDay', e.target.value));
     li.querySelector('[data-field="dollars"]').addEventListener('change', e => updateChore(c.id, 'dollars', round2(parseFloat(e.target.value)||0)));
     li.querySelector('[data-field="difficulty"]').addEventListener('change', e => {
       const newDiff = e.target.value;
@@ -2599,10 +2625,11 @@ function addChore(){
   const name=document.getElementById('new-chore-name').value.trim();
   const kid=document.getElementById('new-chore-kid').value;
   const diff=document.getElementById('new-chore-diff').value||'easy';
+  const timeOfDay=document.getElementById('new-chore-time').value||'morning';
   const pts=DIFF_PTS[diff]||5;
   if(!name){alert('Please enter a chore name.');return;}
   const maxId=state.chores.reduce((m,c)=>Math.max(m,c.id),0);
-  state.chores.push({id:maxId+1,name,points:pts,dollars:0,assignedTo:kid,difficulty:diff});
+  state.chores.push({id:maxId+1,name,points:pts,dollars:0,assignedTo:kid,difficulty:diff,timeOfDay});
   recalcMonthlyEarnings('wesley');
   recalcMonthlyEarnings('wyatt');
   saveState(state);
