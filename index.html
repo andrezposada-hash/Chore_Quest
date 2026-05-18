@@ -54,9 +54,11 @@
   .kid-card.all-done-glow { animation: done-glow 2s ease-in-out infinite; }
 
   .kid-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
-  .kid-avatar { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0; }
+  .kid-avatar { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0; cursor: pointer; position: relative; overflow: hidden; }
   .kid-avatar.wesley { background: linear-gradient(135deg, #667eea, #764ba2); }
   .kid-avatar.wyatt  { background: linear-gradient(135deg, #f093fb, #f5576c); }
+  .kid-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .kid-avatar:hover::after { content: '📷'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: rgba(0,0,0,0.45); border-radius: 50%; }
   .kid-info h2 { font-size: 1.3rem; font-weight: 700; }
   .level-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; margin-top: 2px; color: #f9d423; font-weight: 600; }
 
@@ -473,7 +475,8 @@
   <div class="kid-card" id="card-wesley">
     <div class="confetti-container" id="confetti-wesley"></div>
     <div class="kid-header">
-      <div class="kid-avatar wesley">🧑</div>
+      <div class="kid-avatar wesley" id="avatar-wesley" onclick="document.getElementById('avatar-input-wesley').click()" title="Tap to change photo">🧑</div>
+      <input type="file" id="avatar-input-wesley" accept="image/*" style="display:none" onchange="uploadAvatar('wesley',this)">
       <div class="kid-info">
         <h2>Wesley</h2>
         <div class="level-badge" id="level-wesley">⭐ Beginner</div>
@@ -634,7 +637,8 @@
   <div class="kid-card" id="card-wyatt">
     <div class="confetti-container" id="confetti-wyatt"></div>
     <div class="kid-header">
-      <div class="kid-avatar wyatt">👦</div>
+      <div class="kid-avatar wyatt" id="avatar-wyatt" onclick="document.getElementById('avatar-input-wyatt').click()" title="Tap to change photo">👦</div>
+      <input type="file" id="avatar-input-wyatt" accept="image/*" style="display:none" onchange="uploadAvatar('wyatt',this)">
       <div class="kid-info">
         <h2>Wyatt</h2>
         <div class="level-badge" id="level-wyatt">⭐ Beginner</div>
@@ -1212,6 +1216,7 @@ function getState(rawData) {
     if (s.kids[kid].streakShield===undefined) s.kids[kid].streakShield = false;
     if (!s.kids[kid].monthlyEarnings)  s.kids[kid].monthlyEarnings  = {};
     if (s.kids[kid].availableBalance===undefined) s.kids[kid].availableBalance = 0;
+    // avatar is optional — undefined means show default emoji
   });
 
   // Migrate chores — add difficulty if missing, sync points to DIFF_PTS rule
@@ -1579,9 +1584,48 @@ function triggerLevelUpCelebration(kid, newLevel) {
 }
 
 // ══════════════════════════════════════════
+//  AVATAR UPLOAD
+// ══════════════════════════════════════════
+function uploadAvatar(kid, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    // Resize to max 300px to keep Firebase payload small
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 300;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      state.kids[kid].avatar = canvas.toDataURL('image/jpeg', 0.82);
+      saveState(state);
+      renderAvatar(kid);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = ''; // reset so same file can be re-picked
+}
+
+function renderAvatar(kid) {
+  const el = document.getElementById(`avatar-${kid}`);
+  if (!el) return;
+  const avatar = state.kids[kid]?.avatar;
+  if (avatar) {
+    el.innerHTML = `<img src="${avatar}" alt="${kid}">`;
+  } else {
+    el.innerHTML = kid === 'wesley' ? '🧑' : '👦';
+  }
+}
+
+// ══════════════════════════════════════════
 //  RENDER — KID CARD
 // ══════════════════════════════════════════
 function renderKid(kid) {
+  renderAvatar(kid);
   const today=todayStr(), month=monthStr();
   const comps=state.completions[today]?.[kid]||{};
   const kd=state.kids[kid];
