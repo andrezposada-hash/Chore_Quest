@@ -1665,7 +1665,10 @@ function checkAchievements(kid) {
   const today      = todayStr();
   const month      = monthStr();
   const comps      = state.completions[today]?.[kid] || {};
-  const chores     = state.chores.filter(c => c.assignedTo==='both' || c.assignedTo===kid);
+  // Only consider chores scheduled for today (respects day-of-week rules)
+  const chores     = state.chores.filter(c =>
+    (c.assignedTo==='both' || c.assignedTo===kid) && choreAppliesToday(c, today)
+  );
 
   // Completion helpers
   const myPct       = getDailyPct(kid, today);
