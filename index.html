@@ -96,6 +96,26 @@
   @keyframes xp-flash { 0%{filter:brightness(1);}40%{filter:brightness(2) saturate(2);}100%{filter:brightness(1);} }
   .xp-bar-fill.xp-flash { animation: xp-flash 0.7s ease; }
 
+  /* ── H2H Bar ── */
+  .h2h-bar { max-width:900px; margin:0 auto 20px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:14px 20px; display:flex; align-items:center; gap:12px; }
+  .h2h-kid { display:flex; flex-direction:column; align-items:center; min-width:64px; }
+  .h2h-kid.right { align-items:center; }
+  .h2h-name { font-size:0.72rem; color:#8892b0; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; }
+  .h2h-pct { font-size:1.6rem; font-weight:900; line-height:1; }
+  .h2h-pct.leading { color:#43e97b; }
+  .h2h-pct.trailing { color:#ff6b6b; }
+  .h2h-pct.tied { color:#f9d423; }
+  .h2h-center { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .h2h-gap { font-size:0.8rem; font-weight:700; color:#f9d423; }
+  .h2h-track { width:100%; height:8px; background:rgba(255,255,255,0.08); border-radius:99px; display:flex; overflow:hidden; }
+  .h2h-fill-left  { background:linear-gradient(90deg,#667eea,#764ba2); border-radius:99px 0 0 99px; transition:width 0.5s ease; }
+  .h2h-fill-right { background:linear-gradient(90deg,#f093fb,#f5576c); border-radius:0 99px 99px 0; transition:width 0.5s ease; }
+  .h2h-wl { font-size:0.65rem; color:#6b7494; }
+  @media(max-width:480px) { .h2h-bar { padding:10px 12px; gap:8px; } .h2h-pct { font-size:1.3rem; } }
+
+  /* ── W-L Record ── */
+  .wl-record { font-size:0.68rem; color:#6b7494; text-align:center; margin-top:2px; font-weight:600; }
+
   /* ── Achievements ── */
   .achievements-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
   .achievement-badge { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; cursor: pointer; transition: all 0.3s; position: relative; }
@@ -479,6 +499,13 @@
   <button id="parent-btn">⚙️ Parent</button>
 </header>
 
+<!-- ── Bounty Banner (home screen) ── -->
+<div id="bounty-banner" style="display:none;max-width:900px;margin:0 auto 16px;background:linear-gradient(135deg,rgba(249,212,35,0.15),rgba(255,78,80,0.15));border:1px solid rgba(249,212,35,0.4);border-radius:14px;padding:12px 20px;text-align:center">
+  <div style="font-size:0.7rem;color:#f9d423;font-weight:700;text-transform:uppercase;letter-spacing:0.1em">🎯 Active Bounty</div>
+  <div id="bounty-banner-label" style="font-size:1rem;font-weight:800;color:#fff;margin-top:2px"></div>
+  <div id="bounty-banner-pts"   style="font-size:0.75rem;color:#43e97b;margin-top:2px"></div>
+</div>
+
 <!-- ── Kids Grid ── -->
 <div class="kids-grid">
 
@@ -534,6 +561,7 @@
       <div class="xp-bar-fill wesley" id="xp-bar-wesley" style="width:0%"></div>
     </div>
     <div class="achievements-row" id="achievements-wesley"></div>
+    <div class="wl-record" id="wl-record-wesley"></div>
     <ul class="chore-list" id="chores-wesley"></ul>
     <div class="all-done-msg" id="done-msg-wesley"></div>
     <div class="weekly-chart" id="chart-wesley"></div>
@@ -696,6 +724,7 @@
       <div class="xp-bar-fill wyatt" id="xp-bar-wyatt" style="width:0%"></div>
     </div>
     <div class="achievements-row" id="achievements-wyatt"></div>
+    <div class="wl-record" id="wl-record-wyatt"></div>
     <ul class="chore-list" id="chores-wyatt"></ul>
     <div class="all-done-msg" id="done-msg-wyatt"></div>
     <div class="weekly-chart" id="chart-wyatt"></div>
@@ -788,6 +817,26 @@
       </div>
       <div class="jackpot-pct-label" id="jackpot-month-lbl-wyatt">0 qualifying days</div>
     </div>
+  </div>
+</div>
+
+<!-- ── Live Head-to-Head Gap ── -->
+<div class="h2h-bar" id="h2h-bar">
+  <div class="h2h-kid" id="h2h-left">
+    <span class="h2h-name" id="h2h-name-left">Wesley</span>
+    <span class="h2h-pct" id="h2h-pct-left">0%</span>
+  </div>
+  <div class="h2h-center">
+    <span class="h2h-gap" id="h2h-gap">Tied</span>
+    <div class="h2h-track">
+      <div class="h2h-fill-left"  id="h2h-fill-left"  style="width:50%"></div>
+      <div class="h2h-fill-right" id="h2h-fill-right" style="width:50%"></div>
+    </div>
+    <div class="h2h-wl" id="h2h-wl">This Month</div>
+  </div>
+  <div class="h2h-kid right" id="h2h-right">
+    <span class="h2h-pct" id="h2h-pct-right">0%</span>
+    <span class="h2h-name" id="h2h-name-right">Wyatt</span>
   </div>
 </div>
 
@@ -949,6 +998,20 @@
         <button class="btn btn-add" onclick="updateFamilyChallenge()">Set</button>
       </div>
       <button class="btn btn-reset" style="margin-top:6px" onclick="resetFamilyChallenge()">Reset Week</button>
+    </section>
+
+    <!-- Active Bounty -->
+    <section id="bounty-section">
+      <h3>🎯 Weekly Bounty</h3>
+      <p style="font-size:0.82rem;color:#8892b0;margin-bottom:12px">Set a one-time bonus for whoever wins the week's completion battle.</p>
+      <div id="bounty-active-display" style="display:none"></div>
+      <div id="bounty-form">
+        <div class="form-row">
+          <input type="text"   id="bounty-label"  placeholder="Reward description…" style="flex:2">
+          <input type="number" id="bounty-pts"    placeholder="Bonus XP (optional)" min="0" style="width:120px">
+        </div>
+        <button class="btn btn-add" onclick="activateBounty()">Activate Bounty</button>
+      </div>
     </section>
 
     <!-- Monthly Earnings Cap -->
@@ -1130,12 +1193,20 @@ const DEFAULT_REWARDS = [
 const DIFF_PTS = { easy: 5, medium: 10, hard: 20 };
 
 const ACHIEVEMENTS = [
-  { id:'on_fire',     emoji:'🔥', name:'On Fire',     desc:'3-day streak'            },
-  { id:'week_warrior',emoji:'⚡', name:'Week Warrior',desc:'7-day streak'            },
-  { id:'diamond',     emoji:'💎', name:'Diamond',     desc:'Reach Champion level'    },
-  { id:'early_bird',  emoji:'🌅', name:'Early Bird',  desc:'All chores before noon'  },
-  { id:'team_player', emoji:'🤝', name:'Team Player', desc:'Complete a family challenge'},
-  { id:'legend',      emoji:'👑', name:'Legend',      desc:'Reach max level'         },
+  { id:'on_fire',       emoji:'🔥', name:'On Fire',        desc:'3-day streak'                          },
+  { id:'week_warrior',  emoji:'⚡', name:'Week Warrior',   desc:'7-day streak'                          },
+  { id:'iron_marine',   emoji:'🧱', name:'Iron Marine',    desc:'14-day streak'                         },
+  { id:'unstoppable',   emoji:'💀', name:'Unstoppable',    desc:'30-day streak'                         },
+  { id:'early_bird',    emoji:'🌅', name:'Early Bird',     desc:'All chores done before noon'            },
+  { id:'full_send',     emoji:'💯', name:'Full Send',      desc:'100% of chores completed today'         },
+  { id:'top_gun',       emoji:'⚔️', name:'Top Gun',        desc:'Higher completion % than sibling today' },
+  { id:'shutout',       emoji:'👊', name:'Shutout',        desc:'You hit 100%, sibling did not'          },
+  { id:'three_peat',    emoji:'😤', name:'Three-Peat',     desc:'Beat sibling 3 days in a row'           },
+  { id:'return_fire',   emoji:'🔄', name:'Return Fire',    desc:'Beat sibling after they beat you'       },
+  { id:'monthly_champ', emoji:'🏆', name:'Monthly Champ',  desc:'Better avg % than sibling this month'  },
+  { id:'comeback_kid',  emoji:'🔁', name:'Comeback Kid',   desc:'100% chores after a zero-chore day'     },
+  { id:'devil_dog',     emoji:'🦅', name:'Devil Dog',      desc:'100% every day for a full month'        },
+  { id:'team_player',   emoji:'🤝', name:'Team Player',    desc:'Granted by parent'                      },
 ];
 
 
@@ -1306,8 +1377,16 @@ function getState(rawData) {
     if (s.kids[kid].availableBalance===undefined) s.kids[kid].availableBalance = 0;
     // Migrate global monthlyCap → per-kid
     if (s.kids[kid].monthlyCap === undefined) s.kids[kid].monthlyCap = s.monthlyCap ?? 40;
+    // New fields
+    if (!s.kids[kid].badgeDates)    s.kids[kid].badgeDates    = {};  // { badge_id: 'YYYY-MM-DD' first earned }
+    if (!s.kids[kid].dailyLog)      s.kids[kid].dailyLog      = {};  // { 'YYYY-MM-DD': { pct, pts } }
+    if (!s.kids[kid].wlRecord)      s.kids[kid].wlRecord      = {};  // { '2026-05': { w:0, l:0 } }
+    if (s.kids[kid].prestigeXP === undefined) s.kids[kid].prestigeXP = (s.kids[kid].totalPoints||0) % 19000;
     // avatar is optional — undefined means show default emoji
   });
+
+  if (!s.activeBounty)     s.activeBounty = null;
+  if (!s.headToHeadLog)    s.headToHeadLog = {}; // { 'YYYY-MM-DD': { wesleyPct, wyattPct, winner } }
 
   // Migrate chores — add difficulty if missing, sync points to DIFF_PTS rule, default timeOfDay & daysOfWeek
   s.chores = s.chores.map(c => {
@@ -1572,57 +1651,253 @@ function getFamilyWeeklyPoints() {
 //  ACHIEVEMENTS
 // ══════════════════════════════════════════
 function checkAchievements(kid) {
-  const kd=state.kids[kid];
-  if(!kd.achievements)kd.achievements=[];
-  const prevEarned=new Set(kd.achievements);
-  const pts=kd.totalPoints||0;
-  const today=todayStr(), comps=state.completions[today]?.[kid]||{};
-  const chores=state.chores.filter(c=>c.assignedTo==='both'||c.assignedTo===kid);
-  // Fractional credit: partial approvals count proportionally toward the streak threshold
-  const doneCredit=chores.reduce((sum,c)=>{
-    const comp=comps[String(c.id)];
-    if(!comp||comp.status==='submitted'||comp.status==='sent_back') return sum;
-    if(comp===true) return sum+1;
-    const base=comp.basePts||0, awarded=comp.awardedPts??comp.pts??base;
-    return sum+(base>0?awarded/base:1);
-  },0);
-  const threshold=Math.max(1,Math.floor(chores.length*0.8));
-  const todayMet=chores.length>0&&doneCredit>=threshold;
-  const effectiveStreak=(kd.streak||0)+(todayMet?1:0);
-  const allDone=chores.length>0&&chores.every(c=>isApprovedComp(comps[String(c.id)]));
-  const hour=new Date().getHours();
-  const toasts=[];
-  // Rebuild earned list from scratch so removals take effect when conditions no longer met
-  const newEarned=[];
-  function consider(id, condition, toast) {
-    if(condition) {
+  const kd = state.kids[kid];
+  if (!kd.achievements) kd.achievements = [];
+  if (!kd.badgeDates)   kd.badgeDates   = {};
+  const prevEarned = new Set(kd.achievements);
+  const pts        = kd.totalPoints || 0;
+  const today      = todayStr();
+  const month      = monthStr();
+  const comps      = state.completions[today]?.[kid] || {};
+  const chores     = state.chores.filter(c => c.assignedTo==='both' || c.assignedTo===kid);
+
+  // Completion helpers
+  const myPct       = getDailyPct(kid, today);
+  const siblingId   = kid === 'wesley' ? 'wyatt' : 'wesley';
+  const siblingPct  = getDailyPct(siblingId, today);
+  const allDoneToday = chores.length > 0 && chores.every(c => isApprovedComp(comps[String(c.id)]));
+
+  // Streak (include today if threshold already met)
+  const doneCredit = chores.reduce((sum, c) => {
+    const comp = comps[String(c.id)];
+    if (!comp || comp.status==='submitted' || comp.status==='sent_back') return sum;
+    if (comp === true) return sum + 1;
+    const base = comp.basePts || 0, awarded = comp.awardedPts ?? comp.pts ?? base;
+    return sum + (base > 0 ? awarded / base : 1);
+  }, 0);
+  const threshold      = Math.max(1, Math.floor(chores.length * 0.8));
+  const todayMet       = chores.length > 0 && doneCredit >= threshold;
+  const effectiveStreak = (kd.streak || 0) + (todayMet ? 1 : 0);
+  const hour = new Date().getHours();
+
+  const newEarned = [];
+  function consider(id, condition) {
+    if (condition) {
       newEarned.push(id);
-      if(!prevEarned.has(id)) toasts.push(toast); // new — show toast
+      if (!prevEarned.has(id)) {
+        // First time earning — record date and show toast
+        kd.badgeDates[id] = today;
+        const a = ACHIEVEMENTS.find(x => x.id === id);
+        if (a) setTimeout(() => showToast(`${a.emoji} Badge Unlocked: ${a.name}!`), 1500);
+      }
+    } else if (prevEarned.has(id) && !['return_fire','monthly_champ','comeback_kid','devil_dog','team_player'].includes(id)) {
+      // Revocable badge lost — subtle toast
+      const a = ACHIEVEMENTS.find(x => x.id === id);
+      if (a && initialized) setTimeout(() => showToast(`${a.emoji} ${a.name} lost`), 800);
     }
-    // not meeting condition → badge simply not included → removed
   }
-  consider('on_fire',     effectiveStreak>=3,                                   '🔥 Badge: On Fire!');
-  consider('week_warrior',effectiveStreak>=7,                                   '⚡ Badge: Week Warrior!');
-  consider('diamond',     pts>=600,                                              '💎 Badge: Diamond!');
-  // Early Bird: newly earn only before noon; keep if already earned AND still all done today
-  consider('early_bird',  allDone&&(hour<12||prevEarned.has('early_bird')),     '🌅 Badge: Early Bird!');
-  consider('legend',      pts>=1000,                                             '👑 Badge: Legend!');
-  // team_player is granted externally; preserve it if already earned (no condition to revoke)
-  if(prevEarned.has('team_player')) newEarned.push('team_player');
-  kd.achievements=newEarned;
-  if(toasts.length) setTimeout(()=>showToast(toasts[0]),1500);
+
+  // ── Streak badges (revocable) ──
+  consider('on_fire',     effectiveStreak >= 3);
+  consider('week_warrior',effectiveStreak >= 7);
+  consider('iron_marine', effectiveStreak >= 14);
+  consider('unstoppable', effectiveStreak >= 30);
+
+  // ── Daily badges (revocable) ──
+  consider('early_bird', allDoneToday && (hour < 12 || prevEarned.has('early_bird')));
+  consider('full_send',  allDoneToday);
+  consider('top_gun',    chores.length > 0 && myPct > siblingPct);
+  consider('shutout',    allDoneToday && siblingPct < 100);
+
+  // ── Multi-day competitive (revocable) ──
+  // three_peat: beat sibling 3 days in a row — check headToHeadLog
+  const h2hDates = Object.keys(state.headToHeadLog || {}).sort().slice(-3);
+  const threePeat = h2hDates.length >= 3 && h2hDates.every(d => state.headToHeadLog[d]?.winner === kid);
+  consider('three_peat', threePeat);
+
+  // ── Permanent badges (never revoke once earned) ──
+  // return_fire: beat sibling the day after sibling beat them
+  if (!prevEarned.has('return_fire')) {
+    const sortedDates = Object.keys(state.headToHeadLog || {}).sort();
+    if (sortedDates.length >= 2) {
+      const last  = sortedDates[sortedDates.length - 1];
+      const prev2 = sortedDates[sortedDates.length - 2];
+      if (state.headToHeadLog[last]?.winner === kid && state.headToHeadLog[prev2]?.winner === siblingId) {
+        consider('return_fire', true);
+      }
+    }
+  } else { newEarned.push('return_fire'); }
+
+  // monthly_champ: better avg completion % than sibling this month
+  if (!prevEarned.has('monthly_champ')) {
+    const myAvg  = getMonthlyCompletionRate(state, kid, month).rate;
+    const sibAvg = getMonthlyCompletionRate(state, siblingId, month).rate;
+    if (myAvg > sibAvg) consider('monthly_champ', true);
+  } else { newEarned.push('monthly_champ'); }
+
+  // comeback_kid: 100% after a zero-chore day
+  if (!prevEarned.has('comeback_kid')) {
+    const sortedDays = Object.keys(state.completions).sort();
+    const todayIdx   = sortedDays.indexOf(today);
+    if (allDoneToday && todayIdx > 0) {
+      const prevDay = sortedDays[todayIdx - 1];
+      if (getDailyPct(kid, prevDay) === 0) consider('comeback_kid', true);
+    }
+  } else { newEarned.push('comeback_kid'); }
+
+  // devil_dog: 100% every day of the current calendar month
+  if (!prevEarned.has('devil_dog')) {
+    const [y, m2] = month.split('-').map(Number);
+    const daysInMonth = new Date(y, m2, 0).getDate();
+    const today2 = todayStr();
+    const [, , dd] = today2.split('-').map(Number);
+    // Only evaluate if we're at month end or all days so far are 100%
+    let allHundred = true;
+    for (let day = 1; day <= dd; day++) {
+      const d = `${month}-${String(day).padStart(2,'0')}`;
+      if (getDailyPct(kid, d) < 100) { allHundred = false; break; }
+    }
+    if (allHundred && dd === daysInMonth) consider('devil_dog', true);
+    else if (allHundred && dd < daysInMonth) {} // still in progress, don't award yet
+  } else { newEarned.push('devil_dog'); }
+
+  // team_player: parent-granted, never revoked
+  if (prevEarned.has('team_player')) newEarned.push('team_player');
+
+  kd.achievements = newEarned;
 
   // ── Rank-up detection ──
   const { curIdx:newRankIdx, prestige:newPrestige } = getRankInfo(pts);
-  const prevRankIdx   = kd.lastRankIdx   ?? newRankIdx;
-  const prevPrestige  = kd.lastPrestige  ?? newPrestige;
-  const rankChanged   = newRankIdx > prevRankIdx || newPrestige > prevPrestige;
+  const prevRankIdx  = kd.lastRankIdx  ?? newRankIdx;
+  const prevPrestige = kd.lastPrestige ?? newPrestige;
+  const rankChanged  = newRankIdx > prevRankIdx || newPrestige > prevPrestige;
   kd.lastRankIdx  = newRankIdx;
   kd.lastPrestige = newPrestige;
   if (rankChanged && initialized) {
     const { cur } = getRankInfo(pts);
     const label = newPrestige > 0 ? `🦅 PRESTIGE ${toRoman(newPrestige)} — ${cur.name}` : cur.name;
     setTimeout(() => triggerLevelUpCelebration(kid, { name: label }), 400);
+  }
+}
+
+// ══════════════════════════════════════════
+//  HEAD-TO-HEAD LOG
+// ══════════════════════════════════════════
+function updateHeadToHead() {
+  const today = todayStr();
+  const month = monthStr();
+  const wPct  = getDailyPct('wesley', today);
+  const yPct  = getDailyPct('wyatt',  today);
+  const winner = wPct > yPct ? 'wesley' : yPct > wPct ? 'wyatt' : 'tie';
+
+  if (!state.headToHeadLog) state.headToHeadLog = {};
+  const prev = state.headToHeadLog[today];
+
+  // Only update W-L record when winner changes
+  if (!prev || prev.winner !== winner) {
+    // Reverse previous contribution if it existed and was a real winner
+    if (prev && prev.winner !== 'tie') {
+      const prevWinner = prev.winner;
+      const prevLoser  = prevWinner === 'wesley' ? 'wyatt' : 'wesley';
+      if (state.kids[prevWinner].wlRecord?.[month]?.w > 0) state.kids[prevWinner].wlRecord[month].w--;
+      if (state.kids[prevLoser].wlRecord?.[month]?.l  > 0) state.kids[prevLoser].wlRecord[month].l--;
+    }
+    // Apply new winner
+    ['wesley','wyatt'].forEach(k => {
+      if (!state.kids[k].wlRecord)        state.kids[k].wlRecord        = {};
+      if (!state.kids[k].wlRecord[month]) state.kids[k].wlRecord[month] = {w:0,l:0};
+    });
+    if (winner !== 'tie') {
+      const loser = winner === 'wesley' ? 'wyatt' : 'wesley';
+      state.kids[winner].wlRecord[month].w++;
+      state.kids[loser].wlRecord[month].l++;
+    }
+  }
+  state.headToHeadLog[today] = { wesleyPct: wPct, wyattPct: yPct, winner };
+}
+
+// ══════════════════════════════════════════
+//  LIVE HEAD-TO-HEAD DISPLAY
+// ══════════════════════════════════════════
+function renderH2H() {
+  const today  = todayStr();
+  const month  = monthStr();
+  const wPct   = getDailyPct('wesley', today);
+  const yPct   = getDailyPct('wyatt',  today);
+  const total  = wPct + yPct;
+  const wFill  = total > 0 ? Math.round((wPct / total) * 100) : 50;
+  const yFill  = 100 - wFill;
+  const gap    = Math.abs(wPct - yPct);
+  const leader = wPct > yPct ? 'wesley' : yPct > wPct ? 'wyatt' : null;
+
+  document.getElementById('h2h-pct-left').textContent  = wPct + '%';
+  document.getElementById('h2h-pct-right').textContent = yPct + '%';
+  document.getElementById('h2h-fill-left').style.width  = wFill + '%';
+  document.getElementById('h2h-fill-right').style.width = yFill + '%';
+
+  const leftEl  = document.getElementById('h2h-pct-left');
+  const rightEl = document.getElementById('h2h-pct-right');
+  leftEl.className  = 'h2h-pct ' + (!leader ? 'tied' : leader==='wesley' ? 'leading' : 'trailing');
+  rightEl.className = 'h2h-pct ' + (!leader ? 'tied' : leader==='wyatt'  ? 'leading' : 'trailing');
+
+  const gapEl = document.getElementById('h2h-gap');
+  if (!leader)          gapEl.textContent = '🤝 Tied';
+  else if (gap < 10)    gapEl.textContent = `${leader==='wesley'?'Wesley':'Wyatt'} +${gap}%`;
+  else                  gapEl.textContent = `${leader==='wesley'?'Wesley':'Wyatt'} leads +${gap}%`;
+
+  // W-L record
+  const wWL = state.kids.wesley.wlRecord?.[month] || {w:0,l:0};
+  const yWL = state.kids.wyatt.wlRecord?.[month]  || {w:0,l:0};
+  document.getElementById('h2h-wl').textContent = `Wesley ${wWL.w}–${wWL.l}  ·  Wyatt ${yWL.w}–${yWL.l}`;
+}
+
+// ══════════════════════════════════════════
+//  BOUNTY SYSTEM
+// ══════════════════════════════════════════
+function activateBounty() {
+  const label = document.getElementById('bounty-label').value.trim();
+  const pts   = parseInt(document.getElementById('bounty-pts').value) || 0;
+  if (!label) return;
+  state.activeBounty = { label, pts, activatedAt: Date.now() };
+  document.getElementById('bounty-label').value = '';
+  document.getElementById('bounty-pts').value   = '';
+  saveState(state);
+  renderBounty();
+  showToast(`🎯 Bounty activated: ${label}`);
+}
+function cancelBounty() {
+  state.activeBounty = null;
+  saveState(state);
+  renderBounty();
+}
+function renderBounty() {
+  const b     = state.activeBounty;
+  const disp  = document.getElementById('bounty-active-display');
+  const form  = document.getElementById('bounty-form');
+  if (!disp || !form) return;
+  if (b) {
+    disp.style.display = 'block';
+    form.style.display = 'none';
+    disp.innerHTML = `<div style="background:rgba(249,212,35,0.1);border:1px solid rgba(249,212,35,0.3);border-radius:10px;padding:10px 14px;margin-bottom:10px">
+      <div style="font-weight:700;color:#f9d423">🎯 ${b.label}</div>
+      ${b.pts ? `<div style="font-size:0.78rem;color:#43e97b">+${b.pts} bonus XP to winner</div>` : ''}
+      <button class="del-btn" style="margin-top:8px;width:auto;padding:4px 10px;font-size:0.72rem" onclick="cancelBounty()">Cancel Bounty</button>
+    </div>`;
+  } else {
+    disp.style.display = 'none';
+    form.style.display = 'block';
+  }
+}
+function renderBountyBanner() {
+  const b   = state.activeBounty;
+  const el  = document.getElementById('bounty-banner');
+  if (!el) return;
+  if (b) {
+    el.style.display = 'block';
+    document.getElementById('bounty-banner-label').textContent = b.label;
+    document.getElementById('bounty-banner-pts').textContent   = b.pts ? `+${b.pts} XP to the winner` : '';
+  } else {
+    el.style.display = 'none';
   }
 }
 
@@ -1814,6 +2089,12 @@ function renderKid(kid) {
   else if(jpDayPct>=90){hintEl.textContent='🎯 On track for $50 jackpot!';hintEl.className='jackpot-hint on-track';}
   else{hintEl.textContent=`Jackpot: ${jpDays.qualifying}/${jpDays.total} days at 90%`;hintEl.className='jackpot-hint';}
 
+  // ── W-L Record ──
+  const siblingId = kid === 'wesley' ? 'wyatt' : 'wesley';
+  const wl = state.kids[kid].wlRecord?.[month] || {w:0, l:0};
+  const wlEl = document.getElementById(`wl-record-${kid}`);
+  if (wlEl) wlEl.textContent = `${wl.w}W – ${wl.l}L this month`;
+
   // ── Bonus mission (highlighted regular chore) ──
   const bonusChore = getBonusMission(kid, today);
   const bonusChoreId = bonusChore ? String(bonusChore.id) : null;
@@ -1935,20 +2216,21 @@ function getAchievementProgress(kid, achId) {
   const fc     = state.familyChallenge;
   const weekPts = getFamilyWeeklyPoints();
   switch(achId) {
-    case 'on_fire':
-      return { current: streak, goal: 3,    label: `Streak: ${streak} / 3 days` };
-    case 'week_warrior':
-      return { current: streak, goal: 7,    label: `Streak: ${streak} / 7 days` };
-    case 'diamond':
-      return { current: pts,   goal: 600,   label: `Points: ${pts} / 600 pts` };
-    case 'early_bird':
-      return { current: null,  goal: null,  label: 'Complete all chores before noon on any day' };
-    case 'team_player':
-      return { current: weekPts, goal: fc.target, label: `Family pts this week: ${weekPts} / ${fc.target}` };
-    case 'legend':
-      return { current: pts,   goal: 1000,  label: `Points: ${pts} / 1,000 pts` };
-    default:
-      return { current: null,  goal: null,  label: '' };
+    case 'on_fire':      return { current: streak, goal: 3,  label: `Streak: ${streak} / 3 days` };
+    case 'week_warrior': return { current: streak, goal: 7,  label: `Streak: ${streak} / 7 days` };
+    case 'iron_marine':  return { current: streak, goal: 14, label: `Streak: ${streak} / 14 days` };
+    case 'unstoppable':  return { current: streak, goal: 30, label: `Streak: ${streak} / 30 days` };
+    case 'early_bird':   return { current: null,  goal: null,  label: 'Complete all chores before noon' };
+    case 'full_send':    return { current: null,  goal: null,  label: '100% of chores approved today' };
+    case 'top_gun':      return { current: null,  goal: null,  label: 'Beat your sibling\'s completion % today' };
+    case 'shutout':      return { current: null,  goal: null,  label: 'Hit 100% while sibling didn\'t' };
+    case 'three_peat':   return { current: null,  goal: null,  label: 'Beat sibling 3 days in a row' };
+    case 'return_fire':  return { current: null,  goal: null,  label: 'Beat sibling after they beat you' };
+    case 'monthly_champ':return { current: null,  goal: null,  label: 'Better avg % than sibling this month' };
+    case 'comeback_kid': return { current: null,  goal: null,  label: '100% after a zero-chore day' };
+    case 'devil_dog':    return { current: null,  goal: null,  label: '100% every day of the month' };
+    case 'team_player':  return { current: weekPts, goal: fc.target, label: `Family pts this week: ${weekPts} / ${fc.target}` };
+    default:             return { current: null,  goal: null,  label: '' };
   }
 }
 
@@ -2623,11 +2905,15 @@ function renderManageLists() {
 function render() {
   // state is managed by Firebase listener — do NOT overwrite from localStorage here
   checkAchievements('wesley'); checkAchievements('wyatt');
+  updateHeadToHead();
   saveState(state); // persists achievements + triggers debounced Firebase write
   renderKid('wesley'); renderKid('wyatt');
   renderAchievements('wesley'); renderAchievements('wyatt');
   renderWeeklyChart('wesley'); renderWeeklyChart('wyatt');
   renderRewards(); renderFamilyChallenge(); updateParentBadge();
+  renderH2H();
+  renderBountyBanner();
+  renderBounty(); // update parent panel bounty display
   document.getElementById('date-display').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
 }
 
