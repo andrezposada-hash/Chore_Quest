@@ -1297,10 +1297,14 @@ function getDailyPct(kid, dateStr) {
   if (!totalPts) return 0;
   let earnedPts = 0;
   chores.forEach(c => {
-    const comp = comps[String(c.id)];
-    if (!comp || compStatus(comp) !== 'approved') return;
-    const base    = comp.basePts || 0;
-    const awarded = comp.awardedPts ?? comp.pts ?? base;
+    const comp   = comps[String(c.id)];
+    const status = comp ? compStatus(comp) : 'none';
+    if (status === 'none' || status === 'sent_back') return;
+    const base = comp.basePts || 0;
+    // submitted → provisional full credit; approved → actual awarded amount
+    const awarded = status === 'submitted'
+      ? (comp.submittedPts ?? base)
+      : (comp.awardedPts ?? comp.pts ?? base);
     // Partial approval: scale proportionally by chore's point value
     earnedPts += base > 0 ? (awarded / base) * (c.points || 0) : (c.points || 0);
   });
@@ -1513,11 +1517,18 @@ function getXpProgress(pts) {
   return { pct: Math.round((progress/range)*100), label:`${progress}/${range} to ${next.abbr}` };
 }
 function getTodayPoints(kid) {
-  const comps = state.completions[todayStr()]?.[kid] || {};
-  // Only count approved completions; use awardedPts if set, else base points
+  const today = todayStr();
+  const comps = state.completions[today]?.[kid] || {};
+  // Count approved + submitted (provisional) completions scheduled for today
   let sum = state.chores
-    .filter(c=>(c.assignedTo==='both'||c.assignedTo===kid)&&isApprovedComp(comps[String(c.id)]))
-    .reduce((s,c)=>{ const comp=comps[String(c.id)]; return s+(comp?.awardedPts??comp?.pts??c.points); },0);
+    .filter(c => (c.assignedTo==='both' || c.assignedTo===kid) && choreAppliesToday(c, today))
+    .reduce((s, c) => {
+      const comp   = comps[String(c.id)];
+      const status = comp ? compStatus(comp) : 'none';
+      if (status === 'approved')  return s + (comp?.awardedPts  ?? comp?.pts ?? c.points);
+      if (status === 'submitted') return s + (comp?.submittedPts ?? comp?.basePts ?? c.points);
+      return s;
+    }, 0);
   return sum;
 }
 function getAvailablePoints(kid) {
@@ -1674,14 +1685,20 @@ function checkAchievements(kid) {
   const myPct       = getDailyPct(kid, today);
   const siblingId   = kid === 'wesley' ? 'wyatt' : 'wesley';
   const siblingPct  = getDailyPct(siblingId, today);
-  const allDoneToday = chores.length > 0 && chores.every(c => isApprovedComp(comps[String(c.id)]));
+  const allDoneToday = chores.length > 0 && chores.every(c => {
+    const st = compStatus(comps[String(c.id)]);
+    return st === 'approved' || st === 'submitted';
+  });
 
-  // Streak (include today if threshold already met)
+  // Streak (include today if threshold already met; submitted counts as provisional)
   const doneCredit = chores.reduce((sum, c) => {
     const comp = comps[String(c.id)];
-    if (!comp || comp.status==='submitted' || comp.status==='sent_back') return sum;
+    if (!comp || comp.status==='sent_back') return sum;
     if (comp === true) return sum + 1;
-    const base = comp.basePts || 0, awarded = comp.awardedPts ?? comp.pts ?? base;
+    const base = comp.basePts || 0;
+    const awarded = comp.status === 'submitted'
+      ? (comp.submittedPts ?? base)
+      : (comp.awardedPts ?? comp.pts ?? base);
     return sum + (base > 0 ? awarded / base : 1);
   }, 0);
   const threshold      = Math.max(1, Math.floor(chores.length * 0.8));
@@ -2740,20 +2757,23 @@ function approveSubmission(kid, date, key, pct, note) {
   const comp = state.completions[date]?.[kid]?.[key];
   if (!comp || compStatus(comp) !== 'submitted') return;
 
-  const month       = date.slice(0, 7);
-  const awardedPts  = Math.round((comp.basePts || 0) * pct);
+  const month        = date.slice(0, 7);
+  const awardedPts   = Math.round((comp.basePts || 0) * pct);
 
-  // Award points
-  state.kids[kid].totalPoints = (state.kids[kid].totalPoints || 0) + awardedPts;
+  // Points were already awarded provisionally on submission — only apply the delta.
+  const submittedPts = comp.submittedPts ?? comp.basePts ?? 0;
+  const delta        = awardedPts - submittedPts;
+  state.kids[kid].totalPoints = Math.max(0, (state.kids[kid].totalPoints || 0) + delta);
 
   // Mark approved with full record (dollars computed dynamically from point_value)
   state.completions[date][kid][key] = {
-    status:      'approved',
-    basePts:     comp.basePts,
+    status:       'approved',
+    basePts:      comp.basePts,
+    submittedPts,
     awardedPts,
-    note:        note || '',
-    submittedAt: comp.submittedAt,
-    approvedAt:  Date.now(),
+    note:         note || '',
+    submittedAt:  comp.submittedAt,
+    approvedAt:   Date.now(),
   };
 
   // Recalculate monthly earnings using point_value formula
@@ -2767,12 +2787,20 @@ function approveSubmission(kid, date, key, pct, note) {
   const kidName  = kid === 'wesley' ? 'Wesley' : 'Wyatt';
   const earned   = round2((state.kids[kid].monthlyEarnings || {})[month] || 0);
   const dolMsg   = awardedPts > 0 ? ` · ${fmt$(earned)} this month` : '';
-  showToast(`✅ Approved! +${awardedPts}pts${dolMsg} for ${kidName}`);
+  const deltaMsg = delta === 0 ? '' : delta > 0 ? ` (+${delta} bonus)` : ` (${delta} adjustment)`;
+  showToast(`✅ Approved! ${awardedPts}pts${deltaMsg}${dolMsg} for ${kidName}`);
 }
 
 function sendBackSubmission(kid, date, key, note='') {
   const comp = state.completions[date]?.[kid]?.[key];
   if (!comp) return;
+
+  // Reverse the provisional points awarded on submission
+  const submittedPts = comp.submittedPts ?? 0;
+  if (submittedPts > 0) {
+    state.kids[kid].totalPoints = Math.max(0, (state.kids[kid].totalPoints || 0) - submittedPts);
+  }
+
   // Keep the note so the kid can see why it was sent back; mark as sent_back (not deleted)
   state.completions[date][kid][key] = {
     status: 'sent_back',
@@ -2780,6 +2808,7 @@ function sendBackSubmission(kid, date, key, note='') {
     basePts: comp.basePts || 0,
     sentBackAt: Date.now(),
   };
+  recalcMonthlyEarnings(kid);
   checkAchievements(kid);
   saveState(state);
   renderManageLists();
@@ -2800,11 +2829,16 @@ function resubmitChore(kid, choreId, isBonus) {
   const awardedPts = comp.awardedPts || 0;
   state.kids[kid].totalPoints = Math.max(0, (state.kids[kid].totalPoints || 0) - awardedPts);
 
+  // Re-award full basePts provisionally so the kid isn't penalized during review
+  const submittedPts = comp.basePts || 0;
+  state.kids[kid].totalPoints = (state.kids[kid].totalPoints || 0) + submittedPts;
+
   // Reset to submitted so it appears in the parent approval queue again
   comps[key] = {
-    status:      'submitted',
-    basePts:     comp.basePts,
-    submittedAt: Date.now(),
+    status:       'submitted',
+    basePts:      comp.basePts,
+    submittedPts,
+    submittedAt:  Date.now(),
   };
 
   recalcMonthlyEarnings(kid);
@@ -2943,13 +2977,16 @@ function toggleChore(kid, choreId, points, isBonus) {
 
   const basePts=points;
 
-  // Mark as submitted — points/dollars awarded only when parent approves
-  comps[key]={ status:'submitted', basePts, submittedAt:Date.now() };
+  // Award points immediately so rank/badge feedback fires right away.
+  // submittedPts tracks what was provisionally awarded; parent approval may adjust.
+  const submittedPts = basePts;
+  state.kids[kid].totalPoints = (state.kids[kid].totalPoints || 0) + submittedPts;
+  comps[key]={ status:'submitted', basePts, submittedPts, submittedAt:Date.now() };
 
   saveState(state);
   render();
   const kidName=kid==='wesley'?'Wesley':'Wyatt';
-  showToast(`⏳ Submitted! Waiting for parent approval.`);
+  showToast(`+${submittedPts}pts! ⏳ Pending parent review.`);
 }
 
 function requestUncheck(kid,choreId,points,isBonus){
@@ -2969,8 +3006,11 @@ function doUncheck(kid,choreId,points,isBonus){
   const stored=comps[key];
   delete comps[key];
 
-  // Reverse points — use stored value if available, fall back to base
-  const actualPoints=(stored&&typeof stored==='object')?stored.pts:points;
+  // Reverse points — submittedPts for submitted records, awardedPts for approved
+  let actualPoints = 0;
+  if (stored && typeof stored === 'object') {
+    actualPoints = stored.submittedPts ?? stored.awardedPts ?? stored.pts ?? 0;
+  }
   state.kids[kid].totalPoints=Math.max(0,(state.kids[kid].totalPoints||0)-actualPoints);
 
   recalcMonthlyEarnings(kid);
