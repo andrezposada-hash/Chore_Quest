@@ -1200,6 +1200,7 @@ function getState(rawData) {
   }
 
   // ── Migrations ──
+  if (!s.completions)        s.completions = {};
   if (!s.pendingRedemptions) s.pendingRedemptions = [];
   if (!s.bonusMissions)      s.bonusMissions = {};
   if (!s.payouts)            s.payouts = [];
