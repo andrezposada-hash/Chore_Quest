@@ -1,0 +1,2721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chore Quest 🏆</title>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh; color: #fff; padding: 20px;
+  }
+
+  /* ── Header ── */
+  header { text-align: center; margin-bottom: 28px; position: relative; }
+  header h1 {
+    font-size: 2.4rem; font-weight: 900;
+    background: linear-gradient(90deg, #f9d423, #ff4e50);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 1px;
+  }
+  header p.subtitle { color: #aab4d4; font-size: 0.9rem; margin-top: 4px; }
+  #date-display { color: #7b88b8; font-size: 0.8rem; margin-top: 2px; }
+  #parent-btn {
+    position: absolute; top: 0; right: 0;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: #aab4d4; border-radius: 8px; padding: 8px 14px;
+    cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
+  }
+  #parent-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
+  .parent-badge {
+    display: inline-block; background: #ff4e50; color: #fff;
+    border-radius: 99px; font-size: 0.65rem; font-weight: 900;
+    padding: 1px 5px; margin-left: 4px; vertical-align: middle;
+  }
+
+  /* ── Kid Cards ── */
+  .kids-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 900px; margin: 0 auto 28px; }
+  @media (max-width: 600px) { .kids-grid { grid-template-columns: 1fr; } }
+  .kid-card {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px; padding: 22px; backdrop-filter: blur(10px);
+    transition: transform 0.2s, border-color 0.3s, box-shadow 0.3s; position: relative;
+  }
+  .kid-card:hover { transform: translateY(-2px); }
+  .kid-card.has-progress { border-color: rgba(102,126,234,0.35); box-shadow: 0 0 20px rgba(102,126,234,0.12); }
+  @keyframes done-glow {
+    0%,100% { box-shadow: 0 0 20px rgba(67,233,123,0.3); border-color: rgba(67,233,123,0.4); }
+    50%      { box-shadow: 0 0 40px rgba(67,233,123,0.5); border-color: rgba(67,233,123,0.7); }
+  }
+  .kid-card.all-done-glow { animation: done-glow 2s ease-in-out infinite; }
+
+  .kid-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .kid-avatar { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0; }
+  .kid-avatar.wesley { background: linear-gradient(135deg, #667eea, #764ba2); }
+  .kid-avatar.wyatt  { background: linear-gradient(135deg, #f093fb, #f5576c); }
+  .kid-info h2 { font-size: 1.3rem; font-weight: 700; }
+  .level-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; margin-top: 2px; color: #f9d423; font-weight: 600; }
+
+  /* ── Points Row — 4-column grid ── */
+  .points-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-bottom: 10px; }
+  .stat-box { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 8px 6px; text-align: center; }
+  .stat-box .val { font-size: 1.1rem; font-weight: 800; line-height: 1; }
+  .stat-box .lbl { font-size: 0.6rem; color: #8892b0; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .stat-box.today .val  { color: #f9d423; }
+  .stat-box.total .val  { color: #a8edea; }
+  .stat-box.streak .val { color: #ff6b6b; }
+  .stat-box.money .val  { color: #43e97b; font-size: 1rem; }
+
+  /* ── Monthly Cap Bar ── */
+  .money-cap-section { margin-bottom: 10px; }
+  .money-cap-label-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #8892b0; margin-bottom: 4px; }
+  .maxed-badge { background: linear-gradient(90deg, #f9d423, #ff8c00); color: #1a1a2e; font-size: 0.62rem; font-weight: 900; padding: 2px 7px; border-radius: 99px; }
+  .money-cap-bar-bg { height: 5px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; margin-bottom: 3px; }
+  .money-cap-bar-fill { height: 100%; background: linear-gradient(90deg, #43e97b, #38f9d7); border-radius: 99px; transition: width 0.6s ease; }
+  .money-cap-bar-fill.maxed { background: linear-gradient(90deg, #f9d423, #ff8c00); }
+  .jackpot-hint { font-size: 0.67rem; color: #8892b0; }
+  .jackpot-hint.on-track { color: #43e97b; font-weight: 600; }
+  .jackpot-hint.perfect  { color: #f9d423; font-weight: 700; }
+  .point-value-row { display: flex; justify-content: space-between; font-size: 0.68rem; color: rgba(255,255,255,0.45); margin-top: 4px; }
+  .point-value-row span { }
+
+  /* ── XP Bar ── */
+  .xp-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: #8892b0; margin-bottom: 4px; }
+  .xp-bar-bg { height: 8px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; margin-bottom: 10px; }
+  .xp-bar-fill { height: 100%; border-radius: 99px; transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+  .xp-bar-fill.wesley { background: linear-gradient(90deg, #667eea, #f9d423); }
+  .xp-bar-fill.wyatt  { background: linear-gradient(90deg, #f093fb, #f9d423); }
+  @keyframes xp-flash { 0%{filter:brightness(1);}40%{filter:brightness(2) saturate(2);}100%{filter:brightness(1);} }
+  .xp-bar-fill.xp-flash { animation: xp-flash 0.7s ease; }
+
+  /* ── Achievements ── */
+  .achievements-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .achievement-badge { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; cursor: pointer; transition: all 0.3s; position: relative; }
+  .achievement-badge.locked { background: rgba(255,255,255,0.04); filter: grayscale(1) opacity(0.25); }
+  .achievement-badge.earned { background: rgba(249,212,35,0.12); box-shadow: 0 0 10px rgba(249,212,35,0.25); }
+  .achievement-badge:hover { transform: scale(1.25); z-index: 10; }
+
+  /* ── Badge Tooltip ── */
+  #badge-tooltip {
+    display: none; position: fixed; z-index: 9999;
+    background: #1e2140; border: 1px solid rgba(249,212,35,0.3);
+    border-radius: 14px; padding: 12px 14px; min-width: 190px; max-width: 230px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5); pointer-events: none;
+  }
+  #badge-tooltip.earned-tip { border-color: rgba(249,212,35,0.6); }
+  #badge-tooltip.locked-tip { border-color: rgba(255,255,255,0.12); }
+  .tip-title { display: flex; align-items: center; gap: 7px; font-size: 0.88rem; font-weight: 700; color: #f9d423; margin-bottom: 5px; }
+  .tip-title.locked-title { color: #8892b0; }
+  .tip-desc { font-size: 0.74rem; color: #aab4d4; margin-bottom: 8px; line-height: 1.4; }
+  .tip-progress-label { font-size: 0.68rem; color: #8892b0; margin-bottom: 3px; }
+  .tip-progress-bar-bg { height: 6px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; margin-bottom: 5px; }
+  .tip-progress-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #667eea, #f9d423); transition: width 0.3s; }
+  .tip-progress-bar-fill.complete { background: linear-gradient(90deg, #43e97b, #f9d423); }
+  .tip-status { font-size: 0.72rem; font-weight: 600; }
+  .tip-status.earned { color: #43e97b; }
+  .tip-status.locked { color: #8892b0; }
+
+  /* ── Bonus Mission ── */
+  .bonus-tag { font-size: 0.62rem; background: #f9d423; color: #1a1a2e; border-radius: 4px; padding: 1px 5px; font-weight: 900; display: inline-block; margin-left: 4px; vertical-align: middle; }
+  .bonus-highlight { border: 1px solid rgba(249,212,35,0.45) !important; background: rgba(249,212,35,0.04) !important; }
+  .bonus-pts { color: #f9d423; background: rgba(249,212,35,0.15); border-radius: 20px; padding: 2px 9px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+  .bonus-pts.pending-pts { color: #6b7494; background: rgba(255,255,255,0.05); }
+
+  /* ── Chore List ── */
+  .chore-list { list-style: none; }
+  .chore-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; cursor: pointer; transition: background 0.15s, transform 0.1s; user-select: none; margin-bottom: 4px; }
+  .chore-item:hover  { background: rgba(255,255,255,0.07); }
+  .chore-item:active { transform: scale(0.97); }
+  .chore-item.done   { opacity: 0.5; }
+  .chore-item.submitted { cursor: default; background: rgba(255,255,255,0.02); }
+  .chore-item.submitted:hover { background: rgba(255,255,255,0.02); }
+  .chore-item.submitted:active { transform: none; }
+  .chore-check { width: 26px; height: 26px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; font-size: 1rem; }
+  .chore-item.done .chore-check { background: #43e97b; border-color: #43e97b; }
+  .chore-item.submitted .chore-check { border-color: rgba(255,200,50,0.35); background: rgba(255,200,50,0.08); font-size: 0.85rem; }
+  .chore-item.partial-done .chore-check { border-color: rgba(67,233,123,0.6); } /* fill set via inline style per actual pct */
+  .chore-name { flex: 1; font-size: 0.9rem; font-weight: 500; transition: all 0.2s; }
+  .chore-item.done .chore-name { text-decoration: line-through; }
+  .chore-item.partial-done .chore-name { text-decoration: none; }
+  .chore-item.submitted .chore-name { color: #7a84a0; }
+  .chore-resubmit-hint { display: block; font-size: 0.62rem; color: #5a9e75; font-style: italic; margin-top: 2px; }
+  .chore-awaiting { display: block; font-size: 0.63rem; color: #6b7494; font-style: italic; margin-top: 1px; letter-spacing: 0.01em; }
+  .chore-item.sent-back { border-left: 2px solid rgba(255,159,67,0.55); }
+  .chore-sendback-note { display: block; font-size: 0.63rem; color: #ff9f43; font-style: italic; margin-top: 2px; }
+  .chore-approval-meta { display: block; margin-top: 3px; font-size: 0.65rem; line-height: 1.4; }
+  .chore-awarded-pts { color: #43e97b; font-weight: 700; margin-right: 4px; }
+  .chore-awarded-pts.partial { color: #f9a825; }
+  .chore-parent-note { color: #6b7494; font-style: italic; }
+  .chore-pts { background: rgba(249,212,35,0.15); color: #f9d423; border-radius: 20px; padding: 2px 8px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+  .chore-pts.pending { background: rgba(255,255,255,0.05); color: #6b7494; }
+  .chore-dollars { background: rgba(67,233,123,0.12); color: #43e97b; border-radius: 20px; padding: 2px 7px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
+  .diff-badge { font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 99px; white-space: nowrap; }
+  .diff-easy   { background: rgba(67,233,123,0.15); color: #43e97b; }
+  .diff-medium { background: rgba(249,212,35,0.15); color: #f9d423; }
+  .diff-hard   { background: rgba(255,78,80,0.15);  color: #ff6b6b; }
+
+  /* ── All-done / celebrate ── */
+  .all-done-msg { text-align: center; padding: 12px; color: #43e97b; font-weight: 700; font-size: 1rem; display: none; }
+  @keyframes celebrate-pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(67,233,123,0); border-color: rgba(255,255,255,0.1); }
+    33%      { box-shadow: 0 0 30px 8px rgba(67,233,123,0.5); border-color: rgba(67,233,123,0.8); }
+    66%      { box-shadow: 0 0 15px 4px rgba(67,233,123,0.25); border-color: rgba(67,233,123,0.4); }
+  }
+  .kid-card.celebrating { animation: celebrate-pulse 0.7s ease 3; }
+
+  /* ── Confetti ── */
+  .confetti-container { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: 20px; }
+  @keyframes confetti-burst {
+    0%   { transform: translate(0,0) rotate(0deg); opacity: 1; }
+    100% { transform: translate(var(--tx),var(--ty)) rotate(var(--rot)); opacity: 0; }
+  }
+
+  /* ── Weekly Chart ── */
+  .weekly-chart { display: flex; align-items: flex-end; gap: 4px; height: 60px; margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; }
+  /* Piggy bank section */
+  .piggy-section { margin-top: 14px; padding: 14px 12px 10px; border-top: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.15); border-radius: 14px; }
+  .piggy-section-title { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); margin-bottom: 6px; }
+  .piggy-main-svg { display: block; width: 100%; max-height: 150px; }
+  .piggy-readout { display: flex; align-items: baseline; justify-content: center; gap: 5px; margin-top: 6px; }
+  .piggy-big-amt { font-size: 1.4rem; font-weight: 900; color: #43e97b; letter-spacing: -0.03em; }
+  .piggy-of-label { font-size: 0.68rem; color: rgba(255,255,255,0.38); }
+  .chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; cursor: pointer; border-radius: 4px; transition: background 0.15s; }
+  .chart-col:hover { background: rgba(255,255,255,0.05); }
+  .chart-col.selected-day { background: rgba(249,212,35,0.08); }
+  .chart-bar { width: 100%; background: rgba(102,126,234,0.4); border-radius: 3px 3px 0 0; min-height: 2px; transition: background 0.15s; }
+  .chart-bar.today-bar { background: rgba(249,212,35,0.6); }
+  .chart-col:hover .chart-bar { background: rgba(102,126,234,0.65); }
+  .chart-col:hover .chart-bar.today-bar { background: rgba(249,212,35,0.85); }
+  .chart-lbl { font-size: 0.58rem; color: #5a6480; }
+  /* Day stats modal */
+  .day-nav-row { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+  .day-nav-btn { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #cdd6f4; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+  .day-nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
+  .day-nav-btn:disabled { opacity: 0.2; cursor: default; }
+  .day-nav-center { flex: 1; text-align: center; }
+  .day-nav-center h2 { margin: 0 0 2px; font-size: 1.1rem; }
+  .day-stats-date { font-size: 0.78rem; color: #8892b0; }
+  .day-stats-kid { margin-bottom: 16px; }
+  .day-stats-kid-label { font-size: 0.72rem; font-weight: 700; color: #f9d423; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 7px; display: flex; justify-content: space-between; align-items: center; }
+  .day-stats-kid-pts { font-size: 0.78rem; color: #aab4d4; font-weight: 600; text-transform: none; letter-spacing: 0; }
+  .day-chore-row { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.82rem; }
+  .day-chore-row:last-child { border-bottom: none; }
+  .day-chore-icon { width: 20px; flex-shrink: 0; text-align: center; font-size: 0.78rem; margin-top: 1px; }
+  .day-chore-name { flex: 1; color: #cdd6f4; }
+  .day-chore-name.crossed { text-decoration: line-through; color: #5a6480; }
+  .day-chore-pts { font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+  .day-chore-pts.full { color: #43e97b; }
+  .day-chore-pts.partial { color: #f9a825; }
+  .day-chore-pts.pending { color: #6b7494; }
+  .day-chore-note { display: block; font-size: 0.65rem; color: #6b7494; font-style: italic; margin-top: 2px; }
+  .day-empty { color: #4a5270; font-size: 0.8rem; text-align: center; padding: 10px 0; }
+  #day-stats-edit-bar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+  .btn-day-edit { padding: 4px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #8892b0; font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .btn-day-edit:hover { background: rgba(255,255,255,0.1); color: #cdd6f4; }
+  .btn-day-edit.active { background: rgba(249,212,35,0.15); border-color: rgba(249,212,35,0.4); color: #f9d423; }
+  .day-chore-toggle { width: 22px; height: 22px; flex-shrink: 0; border-radius: 6px; border: 2px solid rgba(255,255,255,0.2); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; transition: all 0.15s; }
+  .day-chore-toggle.checked { background: #43e97b; border-color: #43e97b; color: #1a1a2e; font-weight: 900; }
+  .day-chore-toggle.partial { background: linear-gradient(135deg,#43e97b 50%,transparent 50%); border-color: rgba(67,233,123,0.6); }
+  .day-chore-row.edit-mode { cursor: default; }
+  .day-chore-row.edit-mode:hover { background: rgba(255,255,255,0.03); border-radius: 6px; }
+
+  /* ── Jackpot Tracker ── */
+  .jackpot-tracker { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); }
+  .jackpot-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; margin-bottom: 10px; font-weight: 600; color: #f9d423; }
+  .jackpot-header-status { font-size: 0.72rem; color: #aab4d4; font-weight: 400; }
+  .jackpot-sub-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; color: #8892b0; margin-bottom: 4px; margin-top: 8px; }
+  .jackpot-sub-header:first-of-type { margin-top: 0; }
+  .jackpot-sub-header .sub-val { font-weight: 600; color: #aab4d4; }
+  .jackpot-bar-bg { height: 8px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: visible; position: relative; margin-bottom: 4px; }
+  .jackpot-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #f9d423, #ffa500); transition: width 0.6s ease; max-width: 100%; }
+  .jackpot-bar-fill.on-track { background: linear-gradient(90deg, #43e97b, #f9d423); }
+  .jackpot-bar-fill.monthly { background: linear-gradient(90deg, #667eea, #f9d423); }
+  .jackpot-bar-fill.monthly.on-track { background: linear-gradient(90deg, #43e97b, #f9d423); }
+  .jackpot-marker { position: absolute; top: -4px; left: 90%; width: 2px; height: 16px; background: rgba(255,255,255,0.5); border-radius: 99px; pointer-events: none; }
+  .jackpot-pct-label { font-size: 0.68rem; color: #8892b0; margin-bottom: 2px; }
+  .jackpot-pct-label.on-track { color: #43e97b; font-weight: 600; }
+  .jackpot-pct-label.perfect  { color: #f9d423; font-weight: 700; }
+
+  /* ── Family Challenge ── */
+  .family-challenge { max-width: 900px; margin: 0 auto 20px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 18px 22px; }
+  .fc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .fc-title { font-size: 1rem; font-weight: 700; color: #f9d423; }
+  .fc-reward-label { font-size: 0.82rem; color: #aab4d4; }
+  .fc-progress-label { font-size: 0.8rem; color: #8892b0; margin-bottom: 6px; }
+  .fc-bar-bg { height: 10px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
+  .fc-bar-fill { height: 100%; background: linear-gradient(90deg, #43e97b, #38f9d7); border-radius: 99px; transition: width 0.6s ease; }
+  .fc-completed { text-align: center; color: #43e97b; font-weight: 700; font-size: 0.95rem; margin-top: 10px; }
+
+  /* ── Rewards Section ── */
+  .rewards-section { max-width: 900px; margin: 0 auto 28px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 22px; }
+  .rewards-section h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 14px; color: #f9d423; }
+  .rewards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+  @media (max-width: 600px) {
+    .rewards-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 12px; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
+    .rewards-grid::-webkit-scrollbar { height: 4px; }
+    .rewards-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+    .reward-card { scroll-snap-align: start; min-width: 180px; flex-shrink: 0; }
+  }
+  .reward-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 14px; text-align: center; }
+  .reward-card .reward-emoji { font-size: 1.8rem; }
+  .reward-card .reward-name { font-size: 0.82rem; font-weight: 600; margin-top: 6px; }
+  .reward-cost-row { display: flex; justify-content: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .reward-cost-pts  { background: rgba(249,212,35,0.15); color: #f9d423; border-radius: 20px; padding: 3px 9px; font-size: 0.72rem; font-weight: 700; }
+  .reward-cost-dlr  { background: rgba(67,233,123,0.12); color: #43e97b; border-radius: 20px; padding: 3px 9px; font-size: 0.72rem; font-weight: 700; }
+  .afford-row { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
+  .afford-tag { font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+  .afford-tag.can    { background: rgba(67,233,123,0.15); color: #43e97b; }
+  .afford-tag.cannot { background: rgba(255,255,255,0.06); color: #5a6480; }
+  .redeem-btn { display: block; width: 100%; margin-top: 10px; padding: 7px; background: linear-gradient(90deg, #f9d423, #ff4e50); border: none; border-radius: 8px; color: #fff; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: opacity 0.2s; }
+  .redeem-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .redeem-btn:not(:disabled):hover { opacity: 0.85; }
+
+  /* ── Modal / Overlay ── */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+  .overlay.open { display: flex; }
+  .modal { background: #1a1a2e; border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; padding: 28px; width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto; }
+  .modal h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 20px; }
+  .modal-close { float: right; background: none; border: none; color: #aaa; font-size: 1.4rem; cursor: pointer; line-height: 1; margin-top: -4px; }
+  .modal section { margin-bottom: 22px; }
+  .modal section h3 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 1px; color: #8892b0; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+
+  .form-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
+  .form-row input, .form-row select { flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 9px 12px; color: #fff; font-size: 0.88rem; min-width: 70px; }
+  .form-row input::placeholder { color: #5a6480; }
+  .form-row input:focus, .form-row select:focus { outline: none; border-color: #667eea; }
+  .form-row select option { background: #1a1a2e; }
+
+  .btn { padding: 9px 16px; border-radius: 10px; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: opacity 0.2s; }
+  .btn:hover { opacity: 0.85; }
+  .btn-add    { background: linear-gradient(90deg, #667eea, #764ba2); color: #fff; }
+  .btn-danger { background: linear-gradient(90deg, #ff4e50, #f9d423); color: #fff; }
+  .btn-reset  { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); }
+  .btn-approve { background: rgba(67,233,123,0.2); color: #43e97b; border: 1px solid rgba(67,233,123,0.4); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+  .btn-deny    { background: rgba(255,78,80,0.2); color: #ff6b6b; border: 1px solid rgba(255,78,80,0.4); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+
+  /* ── Approval Queue ── */
+  .approval-count-badge { display: inline-flex; align-items: center; justify-content: center; background: #ff6b6b; color: #fff; font-size: 0.65rem; font-weight: 800; border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: middle; }
+  .approval-kid-group { margin-bottom: 14px; }
+  .approval-kid-label { font-size: 0.72rem; font-weight: 700; color: #8892b0; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .approval-item { background: rgba(255,200,50,0.06); border: 1px solid rgba(255,200,50,0.18); border-radius: 12px; padding: 10px 12px; margin-bottom: 6px; }
+  .approval-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .approval-chore-name { flex: 1; font-size: 0.88rem; font-weight: 600; color: #cdd6f4; }
+  .approval-time { font-size: 0.68rem; color: #6b7494; white-space: nowrap; }
+  .pct-row { display: flex; gap: 5px; margin-bottom: 8px; }
+  .pct-btn { flex: 1; padding: 5px 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #8892b0; font-size: 0.72rem; font-weight: 700; cursor: pointer; text-align: center; transition: all 0.15s; line-height: 1.3; }
+  .pct-btn:hover { background: rgba(255,255,255,0.1); color: #cdd6f4; }
+  .pct-btn.selected { background: rgba(249,212,35,0.18); border-color: rgba(249,212,35,0.5); color: #f9d423; }
+  .approval-note { width: 100%; box-sizing: border-box; padding: 6px 9px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #cdd6f4; font-size: 0.78rem; margin-bottom: 8px; resize: none; font-family: inherit; }
+  .approval-note::placeholder { color: #4a5270; }
+  .approval-actions { display: flex; gap: 6px; }
+  .btn-approve { flex: 1; padding: 7px 10px; border-radius: 8px; border: none; background: rgba(67,233,123,0.18); color: #43e97b; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: background 0.15s; }
+  .btn-approve:hover { background: rgba(67,233,123,0.32); }
+  .btn-sendback { flex: 1; padding: 7px 10px; border-radius: 8px; border: none; background: rgba(255,107,107,0.14); color: #ff6b6b; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: background 0.15s; }
+  .btn-sendback:hover { background: rgba(255,107,107,0.28); }
+
+  .manage-list { list-style: none; }
+  .manage-item { display: flex; align-items: center; padding: 8px 10px; border-radius: 10px; margin-bottom: 4px; background: rgba(255,255,255,0.04); font-size: 0.85rem; gap: 6px; flex-wrap: wrap; }
+  .manage-item span { flex: 1; min-width: 50px; }
+  .manage-item .badge { background: rgba(249,212,35,0.15); color: #f9d423; border-radius: 20px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; flex: 0; }
+  .manage-item .badge-green { background: rgba(67,233,123,0.12); color: #43e97b; border-radius: 20px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; flex: 0; }
+  .del-btn { background: rgba(255,78,80,0.2); border: none; color: #ff6b6b; border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .del-btn:hover { background: rgba(255,78,80,0.4); }
+  /* Inline chore edit inputs */
+  .chore-pts-input  { width: 46px; padding: 2px 5px; border-radius: 8px; border: 1px solid rgba(249,212,35,0.3);  background: rgba(249,212,35,0.08);  color: #f9d423;  font-size: 0.75rem; font-weight: 700; text-align: center; }
+  .chore-dlr-input  { width: 48px; padding: 2px 5px; border-radius: 8px; border: 1px solid rgba(67,233,123,0.3);  background: rgba(67,233,123,0.08);  color: #43e97b;  font-size: 0.75rem; font-weight: 700; text-align: center; }
+  .chore-input-lbl  { font-size: 0.6rem; color: rgba(255,255,255,0.35); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .chore-diff-select { padding: 2px 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #cdd6f4; font-size: 0.72rem; cursor: pointer; }
+  /* Adjust Stats */
+  .adj-kid-block { background: rgba(255,255,255,0.03); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.07); }
+  .adj-kid-name { font-size: 0.82rem; font-weight: 700; color: #f9d423; margin-bottom: 8px; }
+  .adj-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .adj-field { display: flex; flex-direction: column; gap: 3px; }
+  .adj-field label { font-size: 0.66rem; color: #8892b0; text-transform: uppercase; letter-spacing: 0.04em; }
+  .adj-field input { padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #cdd6f4; font-size: 0.85rem; width: 100%; box-sizing: border-box; }
+  .btn-adj-save { margin-top: 10px; padding: 6px 16px; border-radius: 10px; border: none; background: linear-gradient(90deg,#667eea,#764ba2); color: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer; width: 100%; }
+  .btn-adj-save:hover { opacity: 0.85; }
+
+  /* ── Money Dashboard ── */
+  .money-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 14px; }
+  .money-table th { color: #8892b0; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 6px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .money-table td { padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .money-table td:first-child { font-weight: 700; }
+  .money-green { color: #43e97b; font-weight: 700; }
+  .payout-kid-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .payout-kid-btn { flex: 1; padding: 8px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #fff; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+  .payout-kid-btn.active { border-color: #43e97b; background: rgba(67,233,123,0.15); }
+  .jackpot-approval-item { display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 10px; background: rgba(249,212,35,0.07); border: 1px solid rgba(249,212,35,0.2); margin-bottom: 6px; }
+  .jackpot-info { flex: 1; font-size: 0.83rem; }
+  .jackpot-month-label { font-size: 0.7rem; color: #8892b0; margin-top: 2px; }
+
+  /* ── PIN screen ── */
+  #pin-overlay .modal { text-align: center; max-width: 340px; }
+  #pin-overlay h2 { margin-bottom: 8px; }
+  #pin-context-msg { color: #8892b0; font-size: 0.85rem; margin-bottom: 20px; }
+  #pin-input { width: 100%; text-align: center; font-size: 2rem; letter-spacing: 0.5em; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 14px; color: #fff; margin-bottom: 12px; }
+  #pin-input:focus { outline: none; border-color: #667eea; }
+  #pin-error { color: #ff6b6b; font-size: 0.85rem; min-height: 20px; margin-bottom: 10px; }
+  .btn-primary { width: 100%; padding: 12px; background: linear-gradient(90deg, #667eea, #764ba2); border: none; border-radius: 12px; color: #fff; font-weight: 700; font-size: 1rem; cursor: pointer; }
+  .btn-primary:hover { opacity: 0.9; }
+
+  /* ── Redeem modal ── */
+  #redeem-overlay .modal { text-align: center; max-width: 380px; }
+  #redeem-overlay .reward-big { font-size: 3rem; margin: 10px 0; }
+  #redeem-overlay h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 6px; }
+  #redeem-overlay p  { color: #8892b0; font-size: 0.85rem; margin-bottom: 14px; }
+  .pay-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+  .pay-btn { flex: 1; padding: 8px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #aab4d4; font-weight: 600; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; }
+  .pay-btn.active { border-color: #667eea; background: rgba(102,126,234,0.2); color: #fff; }
+  .kid-select-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .kid-select-btn { flex: 1; padding: 10px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; }
+  .kid-select-btn.active { border-color: #667eea; background: rgba(102,126,234,0.2); }
+  .redeem-actions { display: flex; gap: 10px; }
+  .redeem-actions button { flex: 1; }
+
+  /* ── Level-up overlay ── */
+  #levelup-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 300; align-items: center; justify-content: center; flex-direction: column; }
+
+  /* ── Toast ── */
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px); background: linear-gradient(90deg, #43e97b, #38f9d7); color: #1a1a2e; font-weight: 800; padding: 12px 28px; border-radius: 99px; font-size: 0.95rem; z-index: 200; transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; max-width: 90vw; text-align: center; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <h1>⚔️ Chore Quest</h1>
+  <p class="subtitle">Complete chores. Earn points. Level up!</p>
+  <div id="date-display"></div>
+  <div id="sync-status" style="font-size:0.65rem;margin-top:3px;color:#7b88b8;">☁️ Connecting…</div>
+  <button id="parent-btn">⚙️ Parent</button>
+</header>
+
+<!-- ── Kids Grid ── -->
+<div class="kids-grid">
+
+  <!-- Wesley -->
+  <div class="kid-card" id="card-wesley">
+    <div class="confetti-container" id="confetti-wesley"></div>
+    <div class="kid-header">
+      <div class="kid-avatar wesley">🧑</div>
+      <div class="kid-info">
+        <h2>Wesley</h2>
+        <div class="level-badge" id="level-wesley">⭐ Beginner</div>
+      </div>
+    </div>
+    <div class="points-row">
+      <div class="stat-box today">
+        <div class="val" id="today-pts-wesley">0</div>
+        <div class="lbl">Today Pts</div>
+      </div>
+      <div class="stat-box total">
+        <div class="val" id="total-pts-wesley">0</div>
+        <div class="lbl">Total Pts</div>
+      </div>
+      <div class="stat-box streak">
+        <div class="val" id="streak-wesley">0🔥</div>
+        <div class="lbl">Streak</div>
+      </div>
+      <div class="stat-box money">
+        <div class="val" id="month-earned-wesley">$0.00</div>
+        <div class="lbl">This Month</div>
+      </div>
+    </div>
+    <div class="money-cap-section">
+      <div class="money-cap-label-row">
+        <span>Monthly Cap: <span id="money-cap-month-wesley">$0.00</span> / <span id="money-cap-limit-wesley">$40.00</span></span>
+        <span class="maxed-badge" id="maxed-badge-wesley" style="display:none">MAXED 💰</span>
+      </div>
+      <div class="money-cap-bar-bg">
+        <div class="money-cap-bar-fill" id="money-cap-bar-wesley" style="width:0%"></div>
+      </div>
+      <div class="point-value-row" id="point-value-row-wesley">
+        <span id="monthly-pts-wesley">0 pts earned</span>
+        <span id="daily-goal-wesley">Goal: 0 pts/day</span>
+        <span id="point-value-wesley">$0.00/pt</span>
+      </div>
+      <div class="jackpot-hint" id="jackpot-hint-wesley">Jackpot: 0% this month</div>
+    </div>
+    <div class="xp-label">
+      <span id="xp-label-wesley">XP Progress</span>
+      <span id="xp-pct-wesley">0%</span>
+    </div>
+    <div class="xp-bar-bg">
+      <div class="xp-bar-fill wesley" id="xp-bar-wesley" style="width:0%"></div>
+    </div>
+    <div class="achievements-row" id="achievements-wesley"></div>
+    <ul class="chore-list" id="chores-wesley"></ul>
+    <div class="all-done-msg" id="done-msg-wesley"></div>
+    <div class="weekly-chart" id="chart-wesley"></div>
+    <div class="piggy-section" id="piggy-section-wesley">
+      <div class="piggy-section-title">💰 Monthly Savings Bank</div>
+      <svg class="piggy-main-svg" viewBox="0 0 260 158" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- Single merged pig silhouette path used for clip -->
+          <clipPath id="pig-clip-wesley">
+            <path d="M 145,48 C 158,32 178,26 198,30 C 220,36 242,56 243,82 C 244,108 226,128 204,134 C 190,138 175,136 162,126 C 148,144 122,152 94,152 C 66,152 40,140 27,118 C 14,96 14,74 24,56 C 34,38 56,32 84,34 C 108,36 130,42 140,48 Z"/>
+          </clipPath>
+          <!-- Stacked-bill fill pattern -->
+          <pattern id="bills-pat-wesley" x="0" y="0" width="80" height="14" patternUnits="userSpaceOnUse">
+            <rect x="0" y="0" width="80" height="11" fill="#27ae60"/>
+            <rect x="0" y="11" width="80" height="3" fill="rgba(0,60,15,0.5)"/>
+            <text x="8"  y="9" font-size="7" fill="rgba(255,255,255,0.2)" font-family="Georgia,serif" font-weight="bold">$</text>
+            <text x="34" y="9" font-size="7" fill="rgba(255,255,255,0.2)" font-family="Georgia,serif" font-weight="bold">$</text>
+            <text x="60" y="9" font-size="7" fill="rgba(255,255,255,0.2)" font-family="Georgia,serif" font-weight="bold">$</text>
+          </pattern>
+          <linearGradient id="glass-shine-wesley" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"  stop-color="rgba(255,255,255,0.32)"/>
+            <stop offset="40%" stop-color="rgba(255,255,255,0.07)"/>
+            <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+          </linearGradient>
+          <radialGradient id="fill-glow-wesley" cx="50%" cy="0%" r="50%">
+            <stop offset="0%" stop-color="rgba(100,255,150,0.4)"/>
+            <stop offset="100%" stop-color="rgba(100,255,150,0)"/>
+          </radialGradient>
+        </defs>
+        <!-- Hanging chain -->
+        <line x1="128" y1="0" x2="128" y2="18" stroke="rgba(255,210,210,0.55)" stroke-width="2" stroke-linecap="round" stroke-dasharray="3,3"/>
+        <circle cx="128" cy="4" r="4.5" fill="none" stroke="rgba(255,190,190,0.65)" stroke-width="1.5"/>
+        <!-- Curly tail -->
+        <path d="M 24,78 C 10,68 6,54 14,48 C 20,42 30,46 26,54" fill="none" stroke="rgba(255,175,175,0.7)" stroke-width="2.8" stroke-linecap="round"/>
+        <!-- Legs -->
+        <rect x="34"  y="148" width="22" height="14" rx="6" fill="rgba(255,190,190,0.18)" stroke="rgba(255,160,160,0.4)" stroke-width="1"/>
+        <rect x="64"  y="148" width="22" height="14" rx="6" fill="rgba(255,190,190,0.18)" stroke="rgba(255,160,160,0.4)" stroke-width="1"/>
+        <rect x="100" y="148" width="22" height="14" rx="6" fill="rgba(255,190,190,0.18)" stroke="rgba(255,160,160,0.4)" stroke-width="1"/>
+        <rect x="130" y="148" width="22" height="14" rx="6" fill="rgba(255,190,190,0.18)" stroke="rgba(255,160,160,0.4)" stroke-width="1"/>
+        <!-- Money fill — clipped to pig shape, rises from bottom -->
+        <rect id="pig-fill-wesley" x="0" y="152" width="260" height="0"
+              fill="url(#bills-pat-wesley)" clip-path="url(#pig-clip-wesley)"/>
+        <!-- Glow at fill surface -->
+        <rect id="pig-fill-glow-wesley" x="0" y="152" width="260" height="20"
+              fill="url(#fill-glow-wesley)" clip-path="url(#pig-clip-wesley)" opacity="0"/>
+        <!-- Pig body — single unified silhouette path (body + head merged) -->
+        <path d="M 145,48 C 158,32 178,26 198,30 C 220,36 242,56 243,82 C 244,108 226,128 204,134 C 190,138 175,136 162,126 C 148,144 122,152 94,152 C 66,152 40,140 27,118 C 14,96 14,74 24,56 C 34,38 56,32 84,34 C 108,36 130,42 140,48 Z"
+              fill="rgba(255,210,210,0.09)" stroke="rgba(255,185,185,0.65)" stroke-width="2"/>
+        <!-- Left-side glass shine -->
+        <ellipse cx="68" cy="84" rx="22" ry="36" fill="url(#glass-shine-wesley)" clip-path="url(#pig-clip-wesley)" opacity="0.85"/>
+        <!-- Graduation level marks inside the glass — clipped to pig shape -->
+        <!-- Formula: y = 152 - (pct/100 * 118). 50%=solid, 100%=gold, rest=dashed -->
+        <g clip-path="url(#pig-clip-wesley)">
+          <line x1="0" y1="151" x2="260" y2="151" stroke="rgba(255,255,255,0.28)" stroke-width="0.7" stroke-dasharray="3,4"/><!-- 1%  -->
+          <line x1="0" y1="140" x2="260" y2="140" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 10% -->
+          <line x1="0" y1="128" x2="260" y2="128" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 20% -->
+          <line x1="0" y1="116" x2="260" y2="116" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 30% -->
+          <line x1="0" y1="105" x2="260" y2="105" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 40% -->
+          <line x1="0" y1="93"  x2="260" y2="93"  stroke="rgba(255,255,255,0.45)" stroke-width="1.6"/>                      <!-- 50% HALF — solid & brighter -->
+          <line x1="0" y1="81"  x2="260" y2="81"  stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 60% -->
+          <line x1="0" y1="69"  x2="260" y2="69"  stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 70% -->
+          <line x1="0" y1="58"  x2="260" y2="58"  stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 80% -->
+          <line x1="0" y1="46"  x2="260" y2="46"  stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 90% -->
+          <line x1="0" y1="34"  x2="260" y2="34"  stroke="rgba(249,212,35,0.55)"  stroke-width="1.6"/>                      <!-- 100% FULL — gold solid -->
+        </g>
+        <!-- Ears -->
+        <path d="M 178,32 C 174,14 186,6 194,12 C 202,20 198,34 190,36 Z" fill="rgba(255,175,175,0.32)" stroke="rgba(255,150,150,0.65)" stroke-width="1.2"/>
+        <path d="M 198,30 C 198,12 212,5 218,14 C 224,24 218,36 208,36 Z" fill="rgba(255,175,175,0.32)" stroke="rgba(255,150,150,0.65)" stroke-width="1.2"/>
+        <!-- Snout + nostrils -->
+        <ellipse cx="242" cy="84" rx="15" ry="11" fill="rgba(255,160,160,0.28)" stroke="rgba(255,140,140,0.6)" stroke-width="1.2"/>
+        <ellipse cx="237" cy="87" rx="3.5" ry="2.5" fill="rgba(150,55,55,0.55)"/>
+        <ellipse cx="247" cy="87" rx="3.5" ry="2.5" fill="rgba(150,55,55,0.55)"/>
+        <!-- Eye + pupil highlight -->
+        <circle cx="218" cy="67" r="6" fill="rgba(30,15,15,0.88)"/>
+        <circle cx="220" cy="65" r="2.2" fill="white" opacity="0.8"/>
+        <!-- Coin slot -->
+        <rect x="106" y="32" width="28" height="5" rx="2.5" fill="rgba(160,80,80,0.5)" stroke="rgba(200,120,120,0.55)" stroke-width="0.8"/>
+        <!-- Right-side glass rim highlight -->
+        <path d="M 162,126 C 175,136 190,138 204,134 C 226,128 244,108 243,82 C 242,56 220,36 198,30" fill="none" stroke="rgba(255,255,255,0.13)" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <div class="piggy-readout">
+        <span class="piggy-big-amt" id="piggy-amt-wesley">$0.00</span>
+        <span class="piggy-of-label">/ <span id="piggy-cap-wesley">$40.00</span> this month</span>
+      </div>
+    </div>
+    <div class="jackpot-tracker">
+      <div class="jackpot-header">
+        <span>🎰 $50 Jackpot</span>
+        <span class="jackpot-header-status" id="jackpot-status-wesley"></span>
+      </div>
+      <div class="jackpot-sub-header">
+        <span>Today's chores</span>
+        <span class="sub-val" id="jackpot-today-val-wesley">0%</span>
+      </div>
+      <div class="jackpot-bar-bg">
+        <div class="jackpot-bar-fill" id="jackpot-today-bar-wesley" style="width:0%"></div>
+        <div class="jackpot-marker"></div>
+      </div>
+      <div class="jackpot-pct-label" id="jackpot-today-lbl-wesley">0% done today</div>
+      <div class="jackpot-sub-header">
+        <span>Days at 90%+ this month</span>
+        <span class="sub-val" id="jackpot-month-val-wesley">0 / 0</span>
+      </div>
+      <div class="jackpot-bar-bg">
+        <div class="jackpot-bar-fill monthly" id="jackpot-month-bar-wesley" style="width:0%"></div>
+      </div>
+      <div class="jackpot-pct-label" id="jackpot-month-lbl-wesley">0 qualifying days</div>
+    </div>
+  </div>
+
+  <!-- Wyatt -->
+  <div class="kid-card" id="card-wyatt">
+    <div class="confetti-container" id="confetti-wyatt"></div>
+    <div class="kid-header">
+      <div class="kid-avatar wyatt">👦</div>
+      <div class="kid-info">
+        <h2>Wyatt</h2>
+        <div class="level-badge" id="level-wyatt">⭐ Beginner</div>
+      </div>
+    </div>
+    <div class="points-row">
+      <div class="stat-box today">
+        <div class="val" id="today-pts-wyatt">0</div>
+        <div class="lbl">Today Pts</div>
+      </div>
+      <div class="stat-box total">
+        <div class="val" id="total-pts-wyatt">0</div>
+        <div class="lbl">Total Pts</div>
+      </div>
+      <div class="stat-box streak">
+        <div class="val" id="streak-wyatt">0🔥</div>
+        <div class="lbl">Streak</div>
+      </div>
+      <div class="stat-box money">
+        <div class="val" id="month-earned-wyatt">$0.00</div>
+        <div class="lbl">This Month</div>
+      </div>
+    </div>
+    <div class="money-cap-section">
+      <div class="money-cap-label-row">
+        <span>Monthly Cap: <span id="money-cap-month-wyatt">$0.00</span> / <span id="money-cap-limit-wyatt">$40.00</span></span>
+        <span class="maxed-badge" id="maxed-badge-wyatt" style="display:none">MAXED 💰</span>
+      </div>
+      <div class="money-cap-bar-bg">
+        <div class="money-cap-bar-fill" id="money-cap-bar-wyatt" style="width:0%"></div>
+      </div>
+      <div class="point-value-row" id="point-value-row-wyatt">
+        <span id="monthly-pts-wyatt">0 pts earned</span>
+        <span id="daily-goal-wyatt">Goal: 0 pts/day</span>
+        <span id="point-value-wyatt">$0.00/pt</span>
+      </div>
+      <div class="jackpot-hint" id="jackpot-hint-wyatt">Jackpot: 0% this month</div>
+    </div>
+    <div class="xp-label">
+      <span id="xp-label-wyatt">XP Progress</span>
+      <span id="xp-pct-wyatt">0%</span>
+    </div>
+    <div class="xp-bar-bg">
+      <div class="xp-bar-fill wyatt" id="xp-bar-wyatt" style="width:0%"></div>
+    </div>
+    <div class="achievements-row" id="achievements-wyatt"></div>
+    <ul class="chore-list" id="chores-wyatt"></ul>
+    <div class="all-done-msg" id="done-msg-wyatt"></div>
+    <div class="weekly-chart" id="chart-wyatt"></div>
+    <div class="piggy-section" id="piggy-section-wyatt">
+      <div class="piggy-section-title">💰 Monthly Savings Bank</div>
+      <svg class="piggy-main-svg" viewBox="0 0 260 158" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <clipPath id="pig-clip-wyatt">
+            <path d="M 145,48 C 158,32 178,26 198,30 C 220,36 242,56 243,82 C 244,108 226,128 204,134 C 190,138 175,136 162,126 C 148,144 122,152 94,152 C 66,152 40,140 27,118 C 14,96 14,74 24,56 C 34,38 56,32 84,34 C 108,36 130,42 140,48 Z"/>
+          </clipPath>
+          <pattern id="bills-pat-wyatt" x="0" y="0" width="80" height="14" patternUnits="userSpaceOnUse">
+            <rect x="0" y="0" width="80" height="11" fill="#27ae60"/>
+            <rect x="0" y="11" width="80" height="3" fill="rgba(0,60,15,0.5)"/>
+            <text x="8"  y="9" font-size="7" fill="rgba(255,255,255,0.2)" font-family="Georgia,serif" font-weight="bold">$</text>
+            <text x="34" y="9" font-size="7" fill="rgba(255,255,255,0.2)" font-family="Georgia,serif" font-weight="bold">$</text>
+            <text x="60" y="9" font-size="7" fill="rgba(255,255,255,0.2)" font-family="Georgia,serif" font-weight="bold">$</text>
+          </pattern>
+          <linearGradient id="glass-shine-wyatt" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"  stop-color="rgba(255,255,255,0.32)"/>
+            <stop offset="40%" stop-color="rgba(255,255,255,0.07)"/>
+            <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+          </linearGradient>
+          <radialGradient id="fill-glow-wyatt" cx="50%" cy="0%" r="50%">
+            <stop offset="0%" stop-color="rgba(100,255,150,0.4)"/>
+            <stop offset="100%" stop-color="rgba(100,255,150,0)"/>
+          </radialGradient>
+        </defs>
+        <line x1="128" y1="0" x2="128" y2="18" stroke="rgba(255,210,210,0.55)" stroke-width="2" stroke-linecap="round" stroke-dasharray="3,3"/>
+        <circle cx="128" cy="4" r="4.5" fill="none" stroke="rgba(255,190,190,0.65)" stroke-width="1.5"/>
+        <path d="M 24,78 C 10,68 6,54 14,48 C 20,42 30,46 26,54" fill="none" stroke="rgba(255,175,175,0.7)" stroke-width="2.8" stroke-linecap="round"/>
+        <rect x="34"  y="148" width="22" height="14" rx="6" fill="rgba(255,190,190,0.18)" stroke="rgba(255,160,160,0.4)" stroke-width="1"/>
+        <rect x="64"  y="148" width="22" height="14" rx="6" fill="rgba(255,190,190,0.18)" stroke="rgba(255,160,160,0.4)" stroke-width="1"/>
+        <rect x="100" y="148" width="22" height="14" rx="6" fill="rgba(255,190,190,0.18)" stroke="rgba(255,160,160,0.4)" stroke-width="1"/>
+        <rect x="130" y="148" width="22" height="14" rx="6" fill="rgba(255,190,190,0.18)" stroke="rgba(255,160,160,0.4)" stroke-width="1"/>
+        <rect id="pig-fill-wyatt" x="0" y="152" width="260" height="0"
+              fill="url(#bills-pat-wyatt)" clip-path="url(#pig-clip-wyatt)"/>
+        <rect id="pig-fill-glow-wyatt" x="0" y="152" width="260" height="20"
+              fill="url(#fill-glow-wyatt)" clip-path="url(#pig-clip-wyatt)" opacity="0"/>
+        <path d="M 145,48 C 158,32 178,26 198,30 C 220,36 242,56 243,82 C 244,108 226,128 204,134 C 190,138 175,136 162,126 C 148,144 122,152 94,152 C 66,152 40,140 27,118 C 14,96 14,74 24,56 C 34,38 56,32 84,34 C 108,36 130,42 140,48 Z"
+              fill="rgba(255,210,210,0.09)" stroke="rgba(255,185,185,0.65)" stroke-width="2"/>
+        <ellipse cx="68" cy="84" rx="22" ry="36" fill="url(#glass-shine-wyatt)" clip-path="url(#pig-clip-wyatt)" opacity="0.85"/>
+        <g clip-path="url(#pig-clip-wyatt)">
+          <line x1="0" y1="151" x2="260" y2="151" stroke="rgba(255,255,255,0.28)" stroke-width="0.7" stroke-dasharray="3,4"/><!-- 1%  -->
+          <line x1="0" y1="140" x2="260" y2="140" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 10% -->
+          <line x1="0" y1="128" x2="260" y2="128" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 20% -->
+          <line x1="0" y1="116" x2="260" y2="116" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 30% -->
+          <line x1="0" y1="105" x2="260" y2="105" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 40% -->
+          <line x1="0" y1="93"  x2="260" y2="93"  stroke="rgba(255,255,255,0.45)" stroke-width="1.6"/>                      <!-- 50% HALF solid -->
+          <line x1="0" y1="81"  x2="260" y2="81"  stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 60% -->
+          <line x1="0" y1="69"  x2="260" y2="69"  stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 70% -->
+          <line x1="0" y1="58"  x2="260" y2="58"  stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 80% -->
+          <line x1="0" y1="46"  x2="260" y2="46"  stroke="rgba(255,255,255,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/><!-- 90% -->
+          <line x1="0" y1="34"  x2="260" y2="34"  stroke="rgba(249,212,35,0.55)"  stroke-width="1.6"/>                      <!-- 100% FULL gold -->
+        </g>
+        <path d="M 178,32 C 174,14 186,6 194,12 C 202,20 198,34 190,36 Z" fill="rgba(255,175,175,0.32)" stroke="rgba(255,150,150,0.65)" stroke-width="1.2"/>
+        <path d="M 198,30 C 198,12 212,5 218,14 C 224,24 218,36 208,36 Z" fill="rgba(255,175,175,0.32)" stroke="rgba(255,150,150,0.65)" stroke-width="1.2"/>
+        <ellipse cx="242" cy="84" rx="15" ry="11" fill="rgba(255,160,160,0.28)" stroke="rgba(255,140,140,0.6)" stroke-width="1.2"/>
+        <ellipse cx="237" cy="87" rx="3.5" ry="2.5" fill="rgba(150,55,55,0.55)"/>
+        <ellipse cx="247" cy="87" rx="3.5" ry="2.5" fill="rgba(150,55,55,0.55)"/>
+        <circle cx="218" cy="67" r="6" fill="rgba(30,15,15,0.88)"/>
+        <circle cx="220" cy="65" r="2.2" fill="white" opacity="0.8"/>
+        <rect x="106" y="32" width="28" height="5" rx="2.5" fill="rgba(160,80,80,0.5)" stroke="rgba(200,120,120,0.55)" stroke-width="0.8"/>
+        <path d="M 162,126 C 175,136 190,138 204,134 C 226,128 244,108 243,82 C 242,56 220,36 198,30" fill="none" stroke="rgba(255,255,255,0.13)" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <div class="piggy-readout">
+        <span class="piggy-big-amt" id="piggy-amt-wyatt">$0.00</span>
+        <span class="piggy-of-label">/ <span id="piggy-cap-wyatt">$40.00</span> this month</span>
+      </div>
+    </div>
+    <div class="jackpot-tracker">
+      <div class="jackpot-header">
+        <span>🎰 $50 Jackpot</span>
+        <span class="jackpot-header-status" id="jackpot-status-wyatt"></span>
+      </div>
+      <div class="jackpot-sub-header">
+        <span>Today's chores</span>
+        <span class="sub-val" id="jackpot-today-val-wyatt">0%</span>
+      </div>
+      <div class="jackpot-bar-bg">
+        <div class="jackpot-bar-fill" id="jackpot-today-bar-wyatt" style="width:0%"></div>
+        <div class="jackpot-marker"></div>
+      </div>
+      <div class="jackpot-pct-label" id="jackpot-today-lbl-wyatt">0% done today</div>
+      <div class="jackpot-sub-header">
+        <span>Days at 90%+ this month</span>
+        <span class="sub-val" id="jackpot-month-val-wyatt">0 / 0</span>
+      </div>
+      <div class="jackpot-bar-bg">
+        <div class="jackpot-bar-fill monthly" id="jackpot-month-bar-wyatt" style="width:0%"></div>
+      </div>
+      <div class="jackpot-pct-label" id="jackpot-month-lbl-wyatt">0 qualifying days</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Family Challenge ── -->
+<div class="family-challenge" id="family-banner">
+  <div class="fc-header">
+    <span class="fc-title">🏠 Family Challenge</span>
+    <span id="fc-reward-label" class="fc-reward-label"></span>
+  </div>
+  <div class="fc-progress-label">
+    <span id="fc-pts">0</span> / <span id="fc-target">200</span> pts this week — combined
+  </div>
+  <div class="fc-bar-bg"><div class="fc-bar-fill" id="fc-bar" style="width:0%"></div></div>
+  <div class="fc-completed" id="fc-completed" style="display:none">🎉 Challenge Complete! Amazing teamwork!</div>
+</div>
+
+<!-- ── Reward Shop ── -->
+<div class="rewards-section">
+  <h3>🎁 Reward Shop</h3>
+  <div class="rewards-grid" id="rewards-grid"></div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── Level-Up Overlay ── -->
+<div id="levelup-overlay">
+  <div id="levelup-confetti" style="position:absolute;inset:0;overflow:hidden;pointer-events:none"></div>
+  <div style="text-align:center;position:relative;z-index:1">
+    <div style="font-size:1rem;color:#aab4d4;margin-bottom:8px" id="levelup-kid-name"></div>
+    <div style="font-size:2.8rem;font-weight:900;background:linear-gradient(90deg,#f9d423,#ff4e50);-webkit-background-clip:text;-webkit-text-fill-color:transparent" id="levelup-text"></div>
+    <div style="color:#aab4d4;margin-top:10px;font-size:1.1rem">🎉 LEVEL UP!</div>
+  </div>
+</div>
+
+<!-- ── PIN Overlay ── -->
+<div class="overlay" id="pin-overlay">
+  <div class="modal">
+    <h2>🔒 Parent Mode</h2>
+    <p id="pin-context-msg">Enter your 4-digit PIN to manage chores and rewards.</p>
+    <input type="password" inputmode="numeric" maxlength="4" id="pin-input" placeholder="••••" autocomplete="off">
+    <div id="pin-error"></div>
+    <button class="btn-primary" onclick="checkPin()">Unlock</button>
+    <br><br>
+    <button class="btn-reset" style="width:100%" onclick="cancelPin()">Cancel</button>
+  </div>
+</div>
+
+<!-- ── Parent Panel ── -->
+<div class="overlay" id="parent-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeOverlay('parent-overlay')">✕</button>
+    <h2>⚙️ Parent Panel</h2>
+
+    <!-- Approval Queue -->
+    <section id="approval-queue-section" style="display:none">
+      <h3>✅ Approval Queue <span id="approval-queue-count" class="approval-count-badge"></span></h3>
+      <div id="approval-queue-list"></div>
+    </section>
+
+    <!-- Money Dashboard -->
+    <section>
+      <h3>💰 Money Dashboard</h3>
+      <table class="money-table">
+        <thead>
+          <tr><th>Kid</th><th>This Month</th><th>Lifetime</th><th>Balance</th><th>Paid Out</th></tr>
+        </thead>
+        <tbody>
+          <tr id="money-row-wesley"><td colspan="5" style="color:#5a6480;font-size:0.8rem">Loading…</td></tr>
+          <tr id="money-row-wyatt"><td colspan="5" style="color:#5a6480;font-size:0.8rem">Loading…</td></tr>
+        </tbody>
+      </table>
+      <div id="jackpot-approvals-section" style="display:none;margin-bottom:12px">
+        <div style="font-size:0.76rem;color:#f9d423;font-weight:700;margin-bottom:6px">🎰 Pending Jackpots</div>
+        <div id="jackpot-approvals-list"></div>
+      </div>
+      <div style="font-size:0.76rem;color:#8892b0;margin-bottom:6px;margin-top:4px">Pay Out Earnings</div>
+      <div class="payout-kid-row">
+        <button class="payout-kid-btn active" id="payout-kid-wesley" onclick="selectPayoutKid('wesley')">🧑 Wesley</button>
+        <button class="payout-kid-btn" id="payout-kid-wyatt" onclick="selectPayoutKid('wyatt')">👦 Wyatt</button>
+      </div>
+      <div class="form-row">
+        <input type="number" id="payout-amount" placeholder="Amount ($)" min="0.01" step="0.01">
+        <button class="btn btn-add" onclick="markPayout()">Mark as Paid 💵</button>
+      </div>
+      <div style="font-size:0.76rem;color:#8892b0;margin-bottom:6px;margin-top:10px">Recent Payouts</div>
+      <ul class="manage-list" id="payout-history-list"></ul>
+    </section>
+
+    <!-- Pending Approvals -->
+    <section id="pending-section" style="display:none">
+      <h3>Pending Approvals 🔔</h3>
+      <ul class="manage-list" id="pending-list"></ul>
+    </section>
+
+    <!-- Add Chore -->
+    <section>
+      <h3>Add Chore</h3>
+      <div class="form-row">
+        <input type="text" id="new-chore-name" placeholder="Chore name…">
+        <select id="new-chore-kid">
+          <option value="both">Both</option>
+          <option value="wesley">Wesley</option>
+          <option value="wyatt">Wyatt</option>
+        </select>
+        <select id="new-chore-diff" onchange="document.getElementById('new-chore-pts-display').textContent=({easy:'5 pts',medium:'10 pts',hard:'20 pts'})[this.value]">
+          <option value="easy">Easy — 5 pts</option>
+          <option value="medium">Medium — 10 pts</option>
+          <option value="hard">Hard — 20 pts</option>
+        </select>
+        <button class="btn btn-add" onclick="addChore()">Add</button>
+      </div>
+    </section>
+
+    <!-- Chores List -->
+    <section>
+      <h3>Chores</h3>
+      <ul class="manage-list" id="manage-chores"></ul>
+    </section>
+
+    <!-- Add Reward -->
+    <section>
+      <h3>Add Reward</h3>
+      <div class="form-row">
+        <input type="text" id="new-reward-emoji" placeholder="🎮" style="max-width:50px">
+        <input type="text" id="new-reward-name" placeholder="Reward name…">
+        <input type="number" id="new-reward-cost" placeholder="Pts" min="1" style="max-width:58px">
+        <input type="number" id="new-reward-dollars" placeholder="$" min="0" step="0.25" style="max-width:58px">
+        <button class="btn btn-add" onclick="addReward()">Add</button>
+      </div>
+    </section>
+
+    <!-- Rewards List -->
+    <section>
+      <h3>Rewards</h3>
+      <ul class="manage-list" id="manage-rewards"></ul>
+    </section>
+
+    <!-- Family Challenge -->
+    <section>
+      <h3>Family Challenge</h3>
+      <div class="form-row">
+        <input type="number" id="fc-target-input" placeholder="Target pts" min="1" style="max-width:110px">
+        <input type="text" id="fc-reward-input" placeholder="Reward description…">
+        <button class="btn btn-add" onclick="updateFamilyChallenge()">Set</button>
+      </div>
+      <button class="btn btn-reset" style="margin-top:6px" onclick="resetFamilyChallenge()">Reset Week</button>
+    </section>
+
+    <!-- Adjust Kid Stats -->
+    <section>
+      <h3>Adjust Kid Stats</h3>
+      <div class="adj-kid-block">
+        <div class="adj-kid-name">🧑 Wesley</div>
+        <div class="adj-grid">
+          <div class="adj-field"><label>Total Points</label><input type="number" id="adj-pts-wesley" min="0" placeholder="0"></div>
+          <div class="adj-field"><label>Streak (days)</label><input type="number" id="adj-streak-wesley" min="0" placeholder="0"></div>
+          <div class="adj-field"><label>This Month ($)</label><input type="number" id="adj-bal-wesley" min="0" step="0.01" placeholder="0.00"></div>
+        </div>
+        <button class="btn-adj-save" onclick="adjustKidStats('wesley')">Save Wesley</button>
+      </div>
+      <div class="adj-kid-block">
+        <div class="adj-kid-name">👦 Wyatt</div>
+        <div class="adj-grid">
+          <div class="adj-field"><label>Total Points</label><input type="number" id="adj-pts-wyatt" min="0" placeholder="0"></div>
+          <div class="adj-field"><label>Streak (days)</label><input type="number" id="adj-streak-wyatt" min="0" placeholder="0"></div>
+          <div class="adj-field"><label>This Month ($)</label><input type="number" id="adj-bal-wyatt" min="0" step="0.01" placeholder="0.00"></div>
+        </div>
+        <button class="btn-adj-save" onclick="adjustKidStats('wyatt')">Save Wyatt</button>
+      </div>
+    </section>
+
+    <!-- Change PIN -->
+    <section>
+      <h3>Change PIN</h3>
+      <div class="form-row">
+        <input type="password" inputmode="numeric" maxlength="4" id="new-pin" placeholder="New 4-digit PIN">
+        <button class="btn btn-add" onclick="changePin()">Save</button>
+      </div>
+    </section>
+
+    <!-- Daily Reset -->
+    <section>
+      <h3>Daily Reset</h3>
+      <p style="font-size:0.82rem;color:#8892b0;margin-bottom:10px">Chores reset automatically each day. Use this to reset manually if needed.</p>
+      <button class="btn btn-danger" onclick="manualReset()">Reset Today's Chores</button>
+    </section>
+  </div>
+</div>
+
+<!-- ── Day Stats Modal ── -->
+<div class="overlay" id="day-stats-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="dayStatsEditMode=false;closeOverlay('day-stats-overlay')">✕</button>
+    <div class="day-nav-row">
+      <button class="day-nav-btn" id="day-nav-prev" onclick="stepDay(-1)">&#8592;</button>
+      <div class="day-nav-center">
+        <h2 id="day-stats-title">Day Summary</h2>
+        <div class="day-stats-date" id="day-stats-subtitle"></div>
+      </div>
+      <button class="day-nav-btn" id="day-nav-next" onclick="stepDay(1)">&#8594;</button>
+    </div>
+    <div id="day-stats-edit-bar">
+      <button class="btn-day-edit" id="day-edit-btn" onclick="openDayEdit()">🔏 Edit</button>
+    </div>
+    <div id="day-stats-body"></div>
+  </div>
+</div>
+
+<!-- ── Redeem Modal ── -->
+<div class="overlay" id="redeem-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeOverlay('redeem-overlay')">✕</button>
+    <div class="reward-big" id="redeem-emoji"></div>
+    <h3 id="redeem-name"></h3>
+    <div class="pay-toggle">
+      <button class="pay-btn active" id="pay-points-btn" onclick="setPayMethod('points')">⭐ Pay with Points</button>
+      <button class="pay-btn" id="pay-dollars-btn" onclick="setPayMethod('dollars')">💵 Pay with Earnings</button>
+    </div>
+    <p id="redeem-desc"></p>
+    <div class="kid-select-row">
+      <button class="kid-select-btn active" id="redeem-kid-wesley" onclick="selectRedeemKid('wesley')">🧑 Wesley</button>
+      <button class="kid-select-btn" id="redeem-kid-wyatt" onclick="selectRedeemKid('wyatt')">👦 Wyatt</button>
+    </div>
+    <div class="redeem-actions">
+      <button class="btn btn-reset" onclick="closeOverlay('redeem-overlay')">Cancel</button>
+      <button class="btn btn-add" onclick="confirmRedeem()">Redeem! 🎉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════
+const LEVELS = [
+  { name:'⭐ Beginner', min:0    },
+  { name:'🌟 Helper',   min:100  },
+  { name:'💫 Pro',      min:300  },
+  { name:'🏆 Champion', min:600  },
+  { name:'👑 Legend',   min:1000 },
+];
+
+const DEFAULT_CHORES = [
+  { id:1, name:'Make Bed',           points:5,  dollars:0, assignedTo:'both',   difficulty:'easy'   },
+  { id:2, name:'Brush Teeth (AM)',   points:5,  dollars:0, assignedTo:'both',   difficulty:'easy'   },
+  { id:3, name:'Brush Teeth (PM)',   points:5,  dollars:0, assignedTo:'both',   difficulty:'easy'   },
+  { id:4, name:'Clean Room',         points:10, dollars:0, assignedTo:'both',   difficulty:'medium' },
+  { id:5, name:'Do Homework',        points:20, dollars:0, assignedTo:'both',   difficulty:'hard'   },
+  { id:6, name:'Set the Table',      points:5,  dollars:0, assignedTo:'both',   difficulty:'easy'   },
+  { id:7, name:'Take Out Trash',     points:10, dollars:0, assignedTo:'wesley', difficulty:'medium' },
+  { id:8, name:'Feed the Pet',       points:5,  dollars:0, assignedTo:'wyatt',  difficulty:'easy'   },
+];
+
+const DEFAULT_REWARDS = [
+  { id:1, emoji:'📱', name:'30 min extra screen time', cost:50,  dollars:3.00 },
+  { id:2, emoji:'🍕', name:'Pick dinner tonight',      cost:75,  dollars:5.00 },
+  { id:3, emoji:'🎮', name:'Video game night',         cost:120, dollars:8.00 },
+  { id:4, emoji:'🍦', name:'Ice cream trip',           cost:150, dollars:10.00},
+  { id:5, emoji:'🎬', name:'Family movie pick',        cost:100, dollars:7.00 },
+];
+
+const DIFF_PTS = { easy: 5, medium: 10, hard: 20 };
+
+const ACHIEVEMENTS = [
+  { id:'on_fire',     emoji:'🔥', name:'On Fire',     desc:'3-day streak'            },
+  { id:'week_warrior',emoji:'⚡', name:'Week Warrior',desc:'7-day streak'            },
+  { id:'diamond',     emoji:'💎', name:'Diamond',     desc:'Reach Champion level'    },
+  { id:'early_bird',  emoji:'🌅', name:'Early Bird',  desc:'All chores before noon'  },
+  { id:'team_player', emoji:'🤝', name:'Team Player', desc:'Complete a family challenge'},
+  { id:'legend',      emoji:'👑', name:'Legend',      desc:'Reach max level'         },
+];
+
+
+const DONE_MESSAGES = [
+  '🎉 LEGENDARY! You crushed it!',
+  '🔥 UNSTOPPABLE! All done!',
+  '⚡ SUPERSTAR! Mission complete!',
+  '👑 INCREDIBLE! You\'re the best!',
+  '💎 AMAZING! Nothing can stop you!',
+];
+
+// Dollar defaults for migration
+const CHORE_DOLLAR_DEFAULTS = {
+  'Make Bed':0.25,'Brush Teeth (AM)':0.10,'Brush Teeth (PM)':0.10,
+  'Clean Room':0.40,'Do Homework':0.60,'Set the Table':0.20,
+  'Take Out Trash':0.30,'Feed the Pet':0.20,
+};
+const REWARD_DOLLAR_DEFAULTS = {
+  '30 min extra screen time':3.00,'Pick dinner tonight':5.00,
+  'Video game night':8.00,'Ice cream trip':10.00,'Family movie pick':7.00,
+};
+
+// ══════════════════════════════════════════
+//  PIN SECURITY
+// ══════════════════════════════════════════
+function encodePin(pin) {
+  return btoa(pin.split('').reverse().join('') + ':cq');
+}
+function checkPinMatch(entered) {
+  try {
+    const decoded = atob(state.pin);
+    if (!decoded.endsWith(':cq')) return entered === state.pin;
+    return entered === decoded.slice(0,-3).split('').reverse().join('');
+  } catch { return entered === state.pin; }
+}
+
+// ══════════════════════════════════════════
+//  DATE / MONEY HELPERS
+// ══════════════════════════════════════════
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function monthStr()  { return new Date().toISOString().slice(0,7);  }
+function fmt$(n)     { return '$' + (n||0).toFixed(2); }
+function round2(n)   { return Math.round(n * 100) / 100; }
+
+// ══════════════════════════════════════════
+//  COMPLETION STATUS HELPERS
+// ══════════════════════════════════════════
+// Returns 'none' | 'submitted' | 'approved'
+function compStatus(comp) {
+  if (!comp) return 'none';
+  if (comp === true) return 'approved';            // legacy boolean
+  if (typeof comp === 'object') {
+    if (comp.status === 'submitted')  return 'submitted';
+    if (comp.status === 'sent_back')  return 'none'; // treated as untouched for all math
+    return 'approved';                             // {pts,dollars} or {status:'approved',...}
+  }
+  return 'none';
+}
+function isApprovedComp(comp) { return compStatus(comp) === 'approved'; }
+
+// ══════════════════════════════════════════
+//  COMPLETION HELPERS (jackpot)
+// ══════════════════════════════════════════
+function getMonthlyCompletionRate(stateObj, kid, month) {
+  const keys = Object.keys(stateObj.completions).filter(d => d.startsWith(month));
+  if (!keys.length) return {rate:0, done:0, due:0, pct:0};
+  let due=0, done=0;
+  keys.forEach(d => {
+    const dayComps  = stateObj.completions[d]?.[kid] || {};
+    const dayChores = stateObj.chores.filter(c => c.assignedTo==='both'||c.assignedTo===kid);
+    due  += dayChores.length;
+    done += dayChores.filter(c => !!dayComps[String(c.id)]).length;
+  });
+  const rate = due > 0 ? done/due : 0;
+  return {rate, done, due, pct: Math.round(rate*100)};
+}
+
+// Returns today's chore completion % for a kid (0-100), approved only
+function getDailyPct(kid, dateStr) {
+  const comps  = (state.completions[dateStr] || {})[kid] || {};
+  const chores = state.chores.filter(c => c.assignedTo==='both' || c.assignedTo===kid);
+  if (!chores.length) return 0;
+  let credit = 0;
+  chores.forEach(c => {
+    const comp = comps[String(c.id)];
+    if (!comp || compStatus(comp) !== 'approved') return; // 0 credit
+    const base    = comp.basePts || 0;
+    const awarded = comp.awardedPts ?? comp.pts ?? base;
+    // Fractional credit: half-approved counts as 0.5, full = 1, legacy basePts=0 = 1
+    credit += base > 0 ? awarded / base : 1;
+  });
+  return Math.round((credit / chores.length) * 100);
+}
+
+// Returns qualifying days vs total days in the month (not just elapsed)
+function getQualifyingDays(kid, month) {
+  const today = todayStr();
+  // Total calendar days in the month
+  const [y, m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  // Days with recorded completions up to today
+  const trackedDays = Object.keys(state.completions)
+    .filter(d => d.startsWith(month) && d <= today);
+  // Also include today even if nothing recorded yet
+  if (!trackedDays.includes(today)) trackedDays.push(today);
+  const qualifying = trackedDays.filter(d => getDailyPct(kid, d) >= 90).length;
+  return { qualifying, total: daysInMonth };
+}
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+function loadState() {
+  try { const r = localStorage.getItem('chorequest_v2'); if (r) return JSON.parse(r); } catch {}
+  return null;
+}
+
+// Firebase sync state (assigned at init)
+let _fbRef = null, _fbSaveTimer = null, _fbLastJSON = null;
+
+function saveState(s) {
+  // Always cache locally for fast reload
+  try { localStorage.setItem('chorequest_v2', JSON.stringify(s)); } catch(e) {}
+  // Debounced Firebase write so rapid changes don't spam the DB
+  if (!_fbRef) return;
+  clearTimeout(_fbSaveTimer);
+  _fbSaveTimer = setTimeout(() => {
+    const json = JSON.stringify(s);
+    if (json === _fbLastJSON) return; // nothing changed
+    _fbLastJSON = json;
+    _fbRef.set(JSON.parse(json));
+  }, 600);
+}
+
+function getState(rawData) {
+  let s = rawData || loadState();
+  const today = todayStr();
+  const month  = monthStr();
+
+  if (!s) {
+    s = {
+      pin: encodePin('1234'),
+      chores: DEFAULT_CHORES,
+      rewards: DEFAULT_REWARDS,
+      kids: {
+        wesley: { totalPoints:0, spentPoints:0, streak:0, lastCompletionDate:null, achievements:[], streakShield:false, monthlyEarnings:{}, availableBalance:0 },
+        wyatt:  { totalPoints:0, spentPoints:0, streak:0, lastCompletionDate:null, achievements:[], streakShield:false, monthlyEarnings:{}, availableBalance:0 },
+      },
+      completions:{}, lastResetDate:today,
+      pendingRedemptions:[], bonusMissions:{},
+      familyChallenge:{ target:200, reward:'Family Pizza Night! 🍕', weekStart:today, completed:false },
+      payouts:[], jackpots:[],
+    };
+  }
+
+  // ── Migrations ──
+  if (!s.pendingRedemptions) s.pendingRedemptions = [];
+  if (!s.bonusMissions)      s.bonusMissions = {};
+  if (!s.payouts)            s.payouts = [];
+  if (!s.jackpots)           s.jackpots = [];
+  if (!s.familyChallenge)    s.familyChallenge = {target:200,reward:'Family Pizza Night! 🍕',weekStart:today,completed:false};
+
+  ['wesley','wyatt'].forEach(kid => {
+    if (!s.kids[kid].achievements)     s.kids[kid].achievements     = [];
+    if (s.kids[kid].streakShield===undefined) s.kids[kid].streakShield = false;
+    if (!s.kids[kid].monthlyEarnings)  s.kids[kid].monthlyEarnings  = {};
+    if (s.kids[kid].availableBalance===undefined) s.kids[kid].availableBalance = 0;
+  });
+
+  // Migrate chores — add difficulty if missing, sync points to DIFF_PTS rule
+  s.chores = s.chores.map(c => {
+    const diff = c.difficulty || 'easy';
+    return { difficulty:'easy', dollars:0, ...c, difficulty:diff, points: DIFF_PTS[diff] || 5 };
+  });
+
+  // Migrate rewards — add dollars if missing
+  s.rewards = s.rewards.map(r => ({
+    dollars: REWARD_DOLLAR_DEFAULTS[r.name] ?? 5.00,
+    ...r,
+  }));
+
+  // Migrate pendingRedemptions — add paymentType + rewardDollars if missing
+  s.pendingRedemptions = s.pendingRedemptions.map(p => ({
+    paymentType:'points', rewardDollars:0, ...p
+  }));
+
+  // Migrate completions — normalize legacy formats to the full approval record shape
+  // Old: true  (boolean)           → treat as approved, pts unknown
+  // Old: {pts, dollars}            → treat as approved with known pts
+  // New: {status, basePts, awardedPts, note, submittedAt, approvedAt, …}
+  Object.values(s.completions || {}).forEach(dayData => {
+    ['wesley','wyatt'].forEach(kid => {
+      const comps = dayData[kid];
+      if (!comps) return;
+      Object.keys(comps).forEach(key => {
+        const c = comps[key];
+        if (c === true) {
+          comps[key] = { status:'approved', basePts:0, awardedPts:0,
+                         note:'', submittedAt:0, approvedAt:0 };
+        } else if (c && typeof c === 'object' && !c.status) {
+          // Old {pts, dollars} shape — was awarded at check-time
+          comps[key] = { status:'approved',
+                         basePts: c.pts || 0, awardedPts: c.pts || 0,
+                         note:'', submittedAt:0, approvedAt:0 };
+        }
+        // Already has .status — leave untouched
+      });
+    });
+  });
+
+  // Migrate PIN
+  if (/^\d{4}$/.test(s.pin)) s.pin = encodePin(s.pin);
+
+  // ── Daily reset ──
+  if (s.lastResetDate !== today) {
+    const prevDate  = s.lastResetDate;
+    const prevMonth = prevDate.slice(0,7);
+    const curMonth  = today.slice(0,7);
+
+    ['wesley','wyatt'].forEach(kid => {
+      const prevComps  = s.completions[prevDate]?.[kid] || {};
+      const choresDue  = s.chores.filter(c => c.assignedTo==='both'||c.assignedTo===kid);
+      // Fractional credit: a 50%-approved chore counts as 0.5 toward the threshold
+      const doneCredit = choresDue.reduce((sum, c) => {
+        const comp = prevComps[String(c.id)];
+        if (!comp || comp.status === 'submitted' || comp.status === 'sent_back') return sum;
+        if (comp === true) return sum + 1; // legacy boolean
+        const base = comp.basePts || 0;
+        const awarded = comp.awardedPts ?? comp.pts ?? base;
+        return sum + (base > 0 ? awarded / base : 1);
+      }, 0);
+      const threshold  = Math.max(1, Math.floor(choresDue.length * 0.8));
+      const metThreshold = choresDue.length>0 && doneCredit>=threshold;
+
+      if (metThreshold) {
+        s.kids[kid].streak = (s.kids[kid].streak||0) + 1;
+        s.kids[kid].lastCompletionDate = prevDate;
+        if (s.kids[kid].streak>=7 && !s.kids[kid].streakShield) s.kids[kid].streakShield = true;
+      } else {
+        if (s.kids[kid].streakShield) { s.kids[kid].streakShield = false; }
+        else { s.kids[kid].streak = 0; }
+      }
+    });
+
+    // Month rollover — check jackpots
+    if (prevMonth !== curMonth) {
+      ['wesley','wyatt'].forEach(kid => {
+        const {rate} = getMonthlyCompletionRate(s, kid, prevMonth);
+        if (rate >= 0.90 && !s.jackpots.find(j => j.kidId===kid && j.month===prevMonth)) {
+          s.jackpots.push({ id: Date.now().toString()+kid, kidId:kid, month:prevMonth, amount:50, paid:false });
+        }
+      });
+    }
+
+    s.lastResetDate = today;
+  }
+  saveState(s);   // always persist after migrations so normalized format is stored
+  return s;
+}
+
+// ══════════════════════════════════════════
+//  POINT / DOLLAR CALCULATIONS
+// ══════════════════════════════════════════
+let state;
+
+function getLevel(pts) {
+  let lvl = LEVELS[0];
+  for (const l of LEVELS) { if (pts>=l.min) lvl=l; }
+  return lvl;
+}
+function getXpProgress(pts) {
+  let cur=LEVELS[0], next=null;
+  for (let i=0;i<LEVELS.length;i++) { if (pts>=LEVELS[i].min){cur=LEVELS[i];next=LEVELS[i+1]||null;} }
+  if (!next) return {pct:100,label:'MAX LEVEL'};
+  const range=next.min-cur.min, progress=pts-cur.min;
+  return {pct:Math.round((progress/range)*100), label:`${progress}/${range} to ${next.name}`};
+}
+function getTodayPoints(kid) {
+  const comps = state.completions[todayStr()]?.[kid] || {};
+  // Only count approved completions; use awardedPts if set, else base points
+  let sum = state.chores
+    .filter(c=>(c.assignedTo==='both'||c.assignedTo===kid)&&isApprovedComp(comps[String(c.id)]))
+    .reduce((s,c)=>{ const comp=comps[String(c.id)]; return s+(comp?.awardedPts??comp?.pts??c.points); },0);
+  return sum;
+}
+function getAvailablePoints(kid) {
+  const held = (state.pendingRedemptions||[]).filter(p=>p.kidId===kid&&(p.paymentType==='points'||!p.paymentType)).reduce((s,p)=>s+p.rewardCost,0);
+  return (state.kids[kid].totalPoints||0)-(state.kids[kid].spentPoints||0)-held;
+}
+function getAvailableBalance(kid) {
+  const held = (state.pendingRedemptions||[]).filter(p=>p.kidId===kid&&p.paymentType==='dollars').reduce((s,p)=>s+(p.rewardDollars||0),0);
+  return Math.max(0, round2((state.kids[kid].availableBalance||0)-held));
+}
+function getLifetimeEarned(kid) {
+  const monthly = Object.values(state.kids[kid].monthlyEarnings||{}).reduce((s,v)=>s+v,0);
+  const jackpot = (state.jackpots||[]).filter(j=>j.kidId===kid&&j.paid).reduce((s,j)=>s+j.amount,0);
+  return round2(monthly+jackpot);
+}
+
+// ══════════════════════════════════════════
+//  POINT-VALUE EARNING MODEL
+// ══════════════════════════════════════════
+function getDaysInMonth(mStr) {
+  const [y, m] = mStr.split('-').map(Number);
+  return new Date(y, m, 0).getDate();
+}
+function getTotalDailyPoints(kid) {
+  return state.chores
+    .filter(c => c.assignedTo === 'both' || c.assignedTo === kid)
+    .reduce((s, c) => s + (c.points || 0), 0);
+}
+function getPointValue(kid) {
+  const cap    = state.monthlyCap || 40;
+  const daily  = getTotalDailyPoints(kid);
+  if (!daily) return 0;
+  const days   = getDaysInMonth(monthStr());
+  return cap / daily / days;
+}
+function getMonthlyPtsEarned(kid, mStr) {
+  let pts = 0;
+  Object.keys(state.completions)
+    .filter(d => d.startsWith(mStr))
+    .forEach(d => {
+      const comps = state.completions[d]?.[kid] || {};
+      state.chores
+        .filter(c => c.assignedTo === 'both' || c.assignedTo === kid)
+        .forEach(c => {
+          const comp = comps[String(c.id)];
+          if (isApprovedComp(comp)) {
+            const base    = comp?.basePts ?? c.points;
+            const awarded = comp?.awardedPts ?? comp?.pts ?? base;
+            pts += awarded;
+          }
+        });
+    });
+  return pts;
+}
+function computeMonthlyEarned(kid, mStr) {
+  const cap = state.monthlyCap || 40;
+  const pv  = getPointValue(kid);
+  return Math.min(cap, round2(getMonthlyPtsEarned(kid, mStr) * pv));
+}
+function recalcMonthlyEarnings(kid) {
+  const month    = monthStr();
+  const cap      = state.monthlyCap || 40;
+  if (!state.kids[kid].monthlyEarnings) state.kids[kid].monthlyEarnings = {};
+  const oldEarned = round2(state.kids[kid].monthlyEarnings[month] || 0);
+  const newEarned = computeMonthlyEarned(kid, month);
+  const delta     = round2(newEarned - oldEarned);
+  state.kids[kid].monthlyEarnings[month] = newEarned;
+  state.kids[kid].availableBalance = round2(Math.max(0, (state.kids[kid].availableBalance || 0) + delta));
+}
+function getLifetimePaidOut(kid) {
+  return round2((state.payouts||[]).filter(p=>p.kidId===kid).reduce((s,p)=>s+p.amount,0));
+}
+
+// ══════════════════════════════════════════
+//  BONUS MISSION
+// ══════════════════════════════════════════
+function getBonusMission(kid, dateStr) {
+  if (!state.bonusMissions[dateStr]) state.bonusMissions[dateStr]={};
+  const assigned = state.chores.filter(c=>c.assignedTo==='both'||c.assignedTo===kid);
+  if (!assigned.length) return null;
+  const storedId = state.bonusMissions[dateStr][kid];
+  const storedChore = state.chores.find(c=>c.id===storedId);
+  const isValid = storedChore && assigned.some(c=>c.id===storedId);
+  if (!isValid) {
+    const otherKid = kid==='wesley'?'wyatt':'wesley';
+    const otherId  = state.bonusMissions[dateStr][otherKid];
+    let candidates = assigned;
+    if (candidates.length > 1) candidates = candidates.filter(c=>c.id!==otherId);
+    const picked = candidates[Math.floor(Math.random()*candidates.length)];
+    state.bonusMissions[dateStr][kid] = picked.id;
+    saveState(state);
+    return picked;
+  }
+  return storedChore;
+}
+
+// ══════════════════════════════════════════
+//  WEEKLY CHART DATA
+// ══════════════════════════════════════════
+function getWeeklyPoints(kid) {
+  const labels=['S','M','T','W','T','F','S'];
+  return Array.from({length:7},(_,i)=>{
+    const d=new Date(); d.setDate(d.getDate()-(6-i));
+    const dStr=d.toISOString().slice(0,10);
+    const comps=state.completions[dStr]?.[kid]||{};
+    let pts=state.chores.filter(c=>(c.assignedTo==='both'||c.assignedTo===kid)&&isApprovedComp(comps[String(c.id)])).reduce((s,c)=>{ const comp=comps[String(c.id)]; return s+(comp?.awardedPts??comp?.pts??c.points); },0);
+    return {label:labels[d.getDay()],pts,dateStr:dStr};
+  });
+}
+
+// ══════════════════════════════════════════
+//  FAMILY CHALLENGE
+// ══════════════════════════════════════════
+function getFamilyWeeklyPoints() {
+  const fc=state.familyChallenge; let total=0;
+  Object.keys(state.completions).forEach(d=>{
+    if(d<fc.weekStart)return;
+    ['wesley','wyatt'].forEach(kid=>{
+      const comps=state.completions[d]?.[kid]||{};
+      state.chores.filter(c=>(c.assignedTo==='both'||c.assignedTo===kid)&&isApprovedComp(comps[String(c.id)])).forEach(c=>{ const comp=comps[String(c.id)]; total+=(comp?.awardedPts??comp?.pts??c.points); });
+    });
+  });
+  return total;
+}
+
+// ══════════════════════════════════════════
+//  ACHIEVEMENTS
+// ══════════════════════════════════════════
+function checkAchievements(kid) {
+  const kd=state.kids[kid];
+  if(!kd.achievements)kd.achievements=[];
+  const prevEarned=new Set(kd.achievements);
+  const pts=kd.totalPoints||0;
+  const today=todayStr(), comps=state.completions[today]?.[kid]||{};
+  const chores=state.chores.filter(c=>c.assignedTo==='both'||c.assignedTo===kid);
+  // Fractional credit: partial approvals count proportionally toward the streak threshold
+  const doneCredit=chores.reduce((sum,c)=>{
+    const comp=comps[String(c.id)];
+    if(!comp||comp.status==='submitted'||comp.status==='sent_back') return sum;
+    if(comp===true) return sum+1;
+    const base=comp.basePts||0, awarded=comp.awardedPts??comp.pts??base;
+    return sum+(base>0?awarded/base:1);
+  },0);
+  const threshold=Math.max(1,Math.floor(chores.length*0.8));
+  const todayMet=chores.length>0&&doneCredit>=threshold;
+  const effectiveStreak=(kd.streak||0)+(todayMet?1:0);
+  const allDone=chores.length>0&&chores.every(c=>isApprovedComp(comps[String(c.id)]));
+  const hour=new Date().getHours();
+  const toasts=[];
+  // Rebuild earned list from scratch so removals take effect when conditions no longer met
+  const newEarned=[];
+  function consider(id, condition, toast) {
+    if(condition) {
+      newEarned.push(id);
+      if(!prevEarned.has(id)) toasts.push(toast); // new — show toast
+    }
+    // not meeting condition → badge simply not included → removed
+  }
+  consider('on_fire',     effectiveStreak>=3,                                   '🔥 Badge: On Fire!');
+  consider('week_warrior',effectiveStreak>=7,                                   '⚡ Badge: Week Warrior!');
+  consider('diamond',     pts>=600,                                              '💎 Badge: Diamond!');
+  // Early Bird: newly earn only before noon; keep if already earned AND still all done today
+  consider('early_bird',  allDone&&(hour<12||prevEarned.has('early_bird')),     '🌅 Badge: Early Bird!');
+  consider('legend',      pts>=1000,                                             '👑 Badge: Legend!');
+  // team_player is granted externally; preserve it if already earned (no condition to revoke)
+  if(prevEarned.has('team_player')) newEarned.push('team_player');
+  kd.achievements=newEarned;
+  if(toasts.length) setTimeout(()=>showToast(toasts[0]),1500);
+}
+
+// ══════════════════════════════════════════
+//  PIGGY BANK
+// ══════════════════════════════════════════
+function updatePiggyBank(kid, monthlyEarned) {
+  const fillEl = document.getElementById(`pig-fill-${kid}`);
+  const glowEl = document.getElementById(`pig-fill-glow-${kid}`);
+  const amtEl  = document.getElementById(`piggy-amt-${kid}`);
+  if (!fillEl || !amtEl) return;
+  // ViewBox 0 0 260 158. Pig belly bottom = y152, pig body top (back) ≈ y34 → range = 118
+  // Level formula: y = 152 - (pct * 118)
+  // 1%→151, 10%→140, 20%→128, 30%→116, 40%→105, 50%→93, 60%→81, 70%→69, 80%→58, 90%→46, 100%→34
+  const cap   = state.monthlyCap || 40;
+  const FILL_BOTTOM = 152, FILL_RANGE = 118;
+  const pct   = Math.min(1, Math.max(0, monthlyEarned / cap));
+  const capEl = document.getElementById(`piggy-cap-${kid}`);
+  if (capEl) capEl.textContent = fmt$(cap);
+  const fillH = Math.round(pct * FILL_RANGE * 10) / 10;
+  const fillY = FILL_BOTTOM - fillH;
+  fillEl.setAttribute('y', fillY);
+  fillEl.setAttribute('height', fillH + 4); // +4 bleeds past bottom so no gap
+  if (glowEl) {
+    glowEl.setAttribute('y', fillY - 10);
+    glowEl.setAttribute('opacity', pct > 0.01 ? '1' : '0');
+  }
+  amtEl.textContent = fmt$(monthlyEarned);
+  const svg = fillEl.closest('svg');
+  if (svg) {
+    svg.style.filter = pct >= 1    ? 'drop-shadow(0 0 10px rgba(67,233,123,0.8))'  :
+                       pct >= 0.75 ? 'drop-shadow(0 0 6px rgba(67,233,123,0.45))'  : '';
+  }
+}
+
+// ══════════════════════════════════════════
+//  ANIMATED COUNTER
+// ══════════════════════════════════════════
+let prevTodayPts={wesley:0,wyatt:0}, prevXpPct={wesley:0,wyatt:0}, initialized=false;
+let dayStatsDate=todayStr(), dayStatsFocusKid='wesley', dayStatsEditMode=false;
+const DAY_STATS_MAX_BACK=60;
+
+function animateCounter(elId,from,to,dur) {
+  const el=document.getElementById(elId); if(!el)return;
+  const start=performance.now();
+  (function tick(now){
+    const t=Math.min((now-start)/dur,1), ease=1-Math.pow(1-t,3);
+    el.textContent=Math.round(from+(to-from)*ease);
+    if(t<1)requestAnimationFrame(tick);
+  })(performance.now());
+}
+
+// ══════════════════════════════════════════
+//  CONFETTI
+// ══════════════════════════════════════════
+function spawnConfetti(container, count, fullscreen) {
+  container.innerHTML='';
+  const colors=['#f9d423','#ff4e50','#43e97b','#667eea','#f093fb','#38f9d7','#ff6b6b','#ffd700','#a8edea'];
+  for(let i=0;i<count;i++){
+    const p=document.createElement('div');
+    const tx=(Math.random()-0.5)*(fullscreen?400:200);
+    const ty=fullscreen?Math.random()*500+100:Math.random()*200+80;
+    const rot=Math.random()*720-360, dur=0.7+Math.random()*0.8, delay=Math.random()*0.4;
+    p.style.cssText=`position:absolute;width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;background:${colors[Math.floor(Math.random()*colors.length)]};border-radius:${Math.random()>.5?'50%':'2px'};left:${fullscreen?Math.random()*100:30+Math.random()*40}%;top:${fullscreen?'40%':'0'};animation:confetti-burst ${dur}s ease-out ${delay}s forwards;--tx:${tx}px;--ty:${ty}px;--rot:${rot}deg;pointer-events:none;`;
+    container.appendChild(p);
+  }
+  setTimeout(()=>container.innerHTML='',count*10+1600);
+}
+function triggerCompletionConfetti(kid) {
+  spawnConfetti(document.getElementById(`confetti-${kid}`),15,false);
+  const card=document.getElementById(`card-${kid}`);
+  card.classList.add('celebrating');
+  setTimeout(()=>card.classList.remove('celebrating'),2100);
+}
+function triggerLevelUpCelebration(kid, newLevel) {
+  document.getElementById('levelup-kid-name').textContent=kid==='wesley'?'Wesley':'Wyatt';
+  document.getElementById('levelup-text').textContent=newLevel.name;
+  const ov=document.getElementById('levelup-overlay');
+  ov.style.display='flex';
+  spawnConfetti(document.getElementById('levelup-confetti'),30,true);
+  setTimeout(()=>ov.style.display='none',2500);
+}
+
+// ══════════════════════════════════════════
+//  RENDER — KID CARD
+// ══════════════════════════════════════════
+function renderKid(kid) {
+  const today=todayStr(), month=monthStr();
+  const comps=state.completions[today]?.[kid]||{};
+  const kd=state.kids[kid];
+  const totalPts=kd.totalPoints||0, todayPts=getTodayPoints(kid);
+  const streak=kd.streak||0, level=getLevel(totalPts), xp=getXpProgress(totalPts);
+  const chores=state.chores.filter(c=>c.assignedTo==='both'||c.assignedTo===kid);
+
+  document.getElementById(`level-${kid}`).textContent=level.name;
+  document.getElementById(`total-pts-${kid}`).textContent=totalPts;
+
+  if(initialized&&todayPts!==prevTodayPts[kid]){animateCounter(`today-pts-${kid}`,prevTodayPts[kid],todayPts,600);}
+  else{document.getElementById(`today-pts-${kid}`).textContent=todayPts;}
+  prevTodayPts[kid]=todayPts;
+
+  const shield=kd.streakShield?'🛡️':'';
+  document.getElementById(`streak-${kid}`).textContent=`${streak}🔥${shield}`;
+
+  document.getElementById(`xp-label-${kid}`).textContent=xp.label;
+  document.getElementById(`xp-pct-${kid}`).textContent=xp.pct+'%';
+  const bar=document.getElementById(`xp-bar-${kid}`);
+  bar.style.width=xp.pct+'%';
+  if(initialized&&xp.pct>prevXpPct[kid]){bar.classList.add('xp-flash');setTimeout(()=>bar.classList.remove('xp-flash'),700);}
+  prevXpPct[kid]=xp.pct;
+
+  // ── Money stats ──
+  // Read stored value — recalcMonthlyEarnings() updates it on every approval/uncheck.
+  // Manual overrides (adjustKidStats) write directly to the stored value, which must be preserved here.
+  const cap = state.monthlyCap || 40;
+  const monthlyEarned = round2((kd.monthlyEarnings || {})[month] || 0);
+  const monthlyPts    = getMonthlyPtsEarned(kid, month);
+  const dailyGoal     = getTotalDailyPoints(kid);
+  const pointValue    = getPointValue(kid);
+  const capPct = Math.min(100, (monthlyEarned / cap) * 100);
+  const isMaxed = monthlyEarned >= cap;
+  document.getElementById(`month-earned-${kid}`).textContent=fmt$(monthlyEarned);
+  document.getElementById(`money-cap-month-${kid}`).textContent=fmt$(monthlyEarned);
+  document.getElementById(`money-cap-limit-${kid}`).textContent=fmt$(cap);
+  document.getElementById(`monthly-pts-${kid}`).textContent=`${monthlyPts} pts earned`;
+  document.getElementById(`daily-goal-${kid}`).textContent=`Goal: ${dailyGoal} pts/day`;
+  document.getElementById(`point-value-${kid}`).textContent=`${fmt$(pointValue)}/pt`;
+  const capBar=document.getElementById(`money-cap-bar-${kid}`);
+  capBar.style.width=capPct+'%';
+  capBar.classList.toggle('maxed',isMaxed);
+  document.getElementById(`maxed-badge-${kid}`).style.display=isMaxed?'inline':'none';
+
+  // ── Piggy bank fill ──
+  updatePiggyBank(kid, monthlyEarned);
+
+  // Jackpot hint below cap bar (uses day-based qualifying count)
+  const jpDays=getQualifyingDays(kid,month);
+  const jpDayPct=jpDays.total>0?Math.round((jpDays.qualifying/jpDays.total)*100):0;
+  const hintEl=document.getElementById(`jackpot-hint-${kid}`);
+  if(jpDayPct>=100){hintEl.textContent='💰 Perfect month!';hintEl.className='jackpot-hint perfect';}
+  else if(jpDayPct>=90){hintEl.textContent='🎯 On track for $50 jackpot!';hintEl.className='jackpot-hint on-track';}
+  else{hintEl.textContent=`Jackpot: ${jpDays.qualifying}/${jpDays.total} days at 90%`;hintEl.className='jackpot-hint';}
+
+  // ── Bonus mission (highlighted regular chore) ──
+  const bonusChore = getBonusMission(kid, today);
+  const bonusChoreId = bonusChore ? String(bonusChore.id) : null;
+
+  // ── Regular chores (bonus highlighted inline) ──
+  const list=document.getElementById(`chores-${kid}`);
+  list.innerHTML='';
+  chores.forEach(c=>{
+    const comp=comps[String(c.id)];
+    const status=compStatus(comp);
+    const diff=c.difficulty||'easy';
+    const diffLabel=diff.charAt(0).toUpperCase()+diff.slice(1);
+    const isBonus   = bonusChoreId && String(c.id) === bonusChoreId;
+    const bonusPts  = isBonus ? c.points * 2 : c.points;
+    const bonusBadge = isBonus ? ' <span class="bonus-tag">⚡ 2× BONUS</span>' : '';
+    const li=document.createElement('li');
+
+    if(status==='submitted'){
+      const displayPts = comp?.basePts ?? bonusPts;
+      li.className='chore-item submitted';
+      li.innerHTML=`<div class="chore-check">🕐</div><span class="chore-name">${c.name}${bonusBadge}<span class="chore-awaiting">Awaiting Approval</span></span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts pending">+${displayPts}pts</span>`;
+    } else if(status==='approved'){
+      const awarded   = comp?.awardedPts ?? comp?.pts ?? bonusPts;
+      const base      = comp?.basePts ?? bonusPts;
+      const note      = comp?.note || '';
+      const isPartial = base > 0 && awarded < base;
+      const ptsClass  = 'chore-awarded-pts' + (isPartial ? ' partial' : '');
+      const ptsTxt    = isPartial ? `+${awarded} of ${base}pts` : `+${awarded}pts`;
+      const metaHTML  = (isPartial || note)
+        ? `<span class="chore-approval-meta">`
+          + `<span class="${ptsClass}">${ptsTxt}</span>`
+          + (note ? `<span class="chore-parent-note">📝 ${note}</span>` : '')
+          + (isPartial ? `<span class="chore-resubmit-hint">Tap to redo & resubmit ↩</span>` : '')
+          + `</span>`
+        : '';
+      if(isPartial){
+        const fillPct = base > 0 ? Math.round((awarded / base) * 100) : 100;
+        const checkStyle = `background:linear-gradient(to top,#43e97b ${fillPct}%,rgba(255,255,255,0.04) ${fillPct}%);border-color:rgba(67,233,123,${fillPct>=75?'0.85':fillPct>=50?'0.65':'0.45'})`;
+        li.className='chore-item partial-done';
+        li.innerHTML=`<div class="chore-check" style="${checkStyle}"></div><span class="chore-name">${c.name}${bonusBadge}${metaHTML}</span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts">${awarded}/${base}pts</span>`;
+        li.addEventListener('click',()=>resubmitChore(kid,c.id,false));
+      } else {
+        li.className='chore-item done';
+        li.innerHTML=`<div class="chore-check">✓</div><span class="chore-name">${c.name}${bonusBadge}${metaHTML}</span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts">+${awarded}pts</span>`;
+        li.addEventListener('click',()=>requestUncheck(kid,c.id,c.points,false));
+      }
+    } else {
+      const isSentBack = comp?.status === 'sent_back';
+      const sbNote     = isSentBack ? (comp.note || '') : '';
+      const noteHTML   = isSentBack
+        ? `<span class="chore-sendback-note">↩ ${sbNote || 'Sent back — please redo'}</span>`
+        : '';
+      li.className = 'chore-item' + (isSentBack ? ' sent-back' : '') + (isBonus ? ' bonus-highlight' : '');
+      li.innerHTML=`<div class="chore-check"></div><span class="chore-name">${c.name}${bonusBadge}${noteHTML}</span><span class="diff-badge diff-${diff}">${diffLabel}</span><span class="chore-pts">+${bonusPts}pts</span>`;
+      li.addEventListener('click',()=>toggleChore(kid,c.id,bonusPts,false));
+    }
+    list.appendChild(li);
+  });
+
+  const anyDone=chores.some(c=>isApprovedComp(comps[String(c.id)]));
+  const allDone=chores.length>0&&chores.every(c=>isApprovedComp(comps[String(c.id)]));
+  const card=document.getElementById(`card-${kid}`);
+  card.classList.toggle('has-progress',anyDone&&!allDone);
+  card.classList.toggle('all-done-glow',allDone);
+
+  const doneMsg=document.getElementById(`done-msg-${kid}`);
+  if(allDone){
+    doneMsg.style.display='block';
+    if(!doneMsg.dataset.msg){doneMsg.dataset.msg='1';doneMsg.textContent=DONE_MESSAGES[Math.floor(Math.random()*DONE_MESSAGES.length)];}
+  }else{doneMsg.style.display='none';delete doneMsg.dataset.msg;}
+
+  // ── Jackpot tracker ──
+  // Bar 1: today's daily progress toward 90%
+  const todayPct = getDailyPct(kid, today);
+  const todayBar = document.getElementById(`jackpot-today-bar-${kid}`);
+  const todayLbl = document.getElementById(`jackpot-today-lbl-${kid}`);
+  const todayVal = document.getElementById(`jackpot-today-val-${kid}`);
+  todayBar.style.width = Math.min(100, todayPct) + '%';
+  todayBar.classList.toggle('on-track', todayPct >= 90);
+  todayVal.textContent = todayPct + '%';
+  if(todayPct >= 100){ todayLbl.textContent = '✅ All done today!'; todayLbl.className = 'jackpot-pct-label perfect'; }
+  else if(todayPct >= 90){ todayLbl.textContent = `🎯 ${todayPct}% — today counts!`; todayLbl.className = 'jackpot-pct-label on-track'; }
+  else { todayLbl.textContent = `${todayPct}% done — reach 90% to count`; todayLbl.className = 'jackpot-pct-label'; }
+
+  // Bar 2: qualifying days this month (days that hit ≥90%)
+  const {qualifying, total} = getQualifyingDays(kid, month);
+  const monthBarPct = total > 0 ? Math.round((qualifying / total) * 100) : 0;
+  const monthBar = document.getElementById(`jackpot-month-bar-${kid}`);
+  const monthLbl = document.getElementById(`jackpot-month-lbl-${kid}`);
+  const monthVal = document.getElementById(`jackpot-month-val-${kid}`);
+  monthBar.style.width = monthBarPct + '%';
+  monthBar.classList.toggle('on-track', monthBarPct >= 90);
+  monthVal.textContent = `${qualifying} / ${total}`;
+  if(monthBarPct >= 100){ monthLbl.textContent = '💰 Perfect month! $50 Jackpot!'; monthLbl.className = 'jackpot-pct-label perfect'; }
+  else if(monthBarPct >= 90){ monthLbl.textContent = `🎯 ${qualifying}/${total} days — jackpot on track!`; monthLbl.className = 'jackpot-pct-label on-track'; }
+  else { monthLbl.textContent = `${qualifying} of ${total} days qualify`; monthLbl.className = 'jackpot-pct-label'; }
+
+  // Summary status badge
+  document.getElementById(`jackpot-status-${kid}`).textContent =
+    monthBarPct >= 100 ? '💰 Perfect!' : monthBarPct >= 90 ? '🎯 On track!' : `${qualifying}/${total} days`;
+}
+
+// Returns {current, goal, label, pct} for a given achievement and kid
+function getAchievementProgress(kid, achId) {
+  const kd = state.kids[kid];
+  const streak = kd.streak || 0;
+  const pts    = kd.totalPoints || 0;
+  const fc     = state.familyChallenge;
+  const weekPts = getFamilyWeeklyPoints();
+  switch(achId) {
+    case 'on_fire':
+      return { current: streak, goal: 3,    label: `Streak: ${streak} / 3 days` };
+    case 'week_warrior':
+      return { current: streak, goal: 7,    label: `Streak: ${streak} / 7 days` };
+    case 'diamond':
+      return { current: pts,   goal: 600,   label: `Points: ${pts} / 600 pts` };
+    case 'early_bird':
+      return { current: null,  goal: null,  label: 'Complete all chores before noon on any day' };
+    case 'team_player':
+      return { current: weekPts, goal: fc.target, label: `Family pts this week: ${weekPts} / ${fc.target}` };
+    case 'legend':
+      return { current: pts,   goal: 1000,  label: `Points: ${pts} / 1,000 pts` };
+    default:
+      return { current: null,  goal: null,  label: '' };
+  }
+}
+
+function showBadgeTip(e, kid, a, isEarned) {
+  const tip = document.getElementById('badge-tooltip');
+  const prog = getAchievementProgress(kid, a.id);
+  const pct = prog.goal != null ? Math.min(100, Math.round((prog.current / prog.goal) * 100)) : (isEarned ? 100 : 0);
+
+  document.getElementById('tip-title').textContent = `${a.emoji} ${a.name}`;
+  document.getElementById('tip-title').className   = 'tip-title' + (isEarned ? '' : ' locked-title');
+  document.getElementById('tip-desc').textContent  = a.desc;
+
+  const barBg   = document.getElementById('tip-bar-bg');
+  const barFill = document.getElementById('tip-bar-fill');
+  const progLbl = document.getElementById('tip-progress-label');
+  const status  = document.getElementById('tip-status');
+
+  if (a.id === 'early_bird') {
+    // Time-based — no progress bar
+    barBg.style.display   = 'none';
+    progLbl.textContent   = prog.label;
+    status.textContent    = isEarned ? '✅ Earned!' : '⏰ Keep an eye on the clock!';
+    status.className      = 'tip-status ' + (isEarned ? 'earned' : 'locked');
+  } else {
+    barBg.style.display   = 'block';
+    barFill.style.width   = pct + '%';
+    barFill.className     = 'tip-progress-bar-fill' + (isEarned ? ' complete' : '');
+    progLbl.textContent   = prog.label;
+    status.textContent    = isEarned ? '✅ Earned!' : `${pct}% there — keep going!`;
+    status.className      = 'tip-status ' + (isEarned ? 'earned' : 'locked');
+  }
+
+  tip.className = isEarned ? 'earned-tip' : 'locked-tip';
+  tip.style.display = 'block';
+  positionBadgeTip(e, tip);
+}
+
+function positionBadgeTip(e, tip) {
+  const pad = 10;
+  let x = e.clientX + 14, y = e.clientY - 10;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  // Flip left if it overflows viewport right
+  requestAnimationFrame(() => {
+    const rect = tip.getBoundingClientRect();
+    if (rect.right > window.innerWidth - pad)  tip.style.left = (e.clientX - rect.width - 14) + 'px';
+    if (rect.bottom > window.innerHeight - pad) tip.style.top  = (e.clientY - rect.height + 10) + 'px';
+  });
+}
+
+function hideBadgeTip() {
+  document.getElementById('badge-tooltip').style.display = 'none';
+}
+
+function renderAchievements(kid) {
+  const row=document.getElementById(`achievements-${kid}`); if(!row)return;
+  row.innerHTML='';
+  const earned=state.kids[kid].achievements||[];
+  ACHIEVEMENTS.forEach(a=>{
+    const isEarned = earned.includes(a.id);
+    const d=document.createElement('div');
+    d.className='achievement-badge '+(isEarned?'earned':'locked');
+    d.textContent=a.emoji;
+    d.addEventListener('mouseenter', e => showBadgeTip(e, kid, a, isEarned));
+    d.addEventListener('mousemove',  e => positionBadgeTip(e, document.getElementById('badge-tooltip')));
+    d.addEventListener('mouseleave', hideBadgeTip);
+    // Touch support
+    d.addEventListener('touchstart', e => { e.preventDefault(); showBadgeTip(e.touches[0], kid, a, isEarned); }, {passive:false});
+    d.addEventListener('touchend',   () => setTimeout(hideBadgeTip, 1800));
+    row.appendChild(d);
+  });
+}
+
+function renderWeeklyChart(kid) {
+  const container=document.getElementById(`chart-${kid}`); if(!container)return;
+  const data=getWeeklyPoints(kid), today=todayStr();
+  const max=Math.max(1,...data.map(d=>d.pts));
+  container.innerHTML='';
+  data.forEach(d=>{
+    const h=Math.max(2,Math.round((d.pts/max)*50));
+    const isToday=d.dateStr===today;
+    const col=document.createElement('div');
+    col.className='chart-col'+(isToday?' selected-day':'');
+    col.title=d.dateStr;
+    col.innerHTML=`<div class="chart-bar${isToday?' today-bar':''}" style="height:${h}px"></div><div class="chart-lbl">${d.label}</div>`;
+    col.addEventListener('click',()=>showDayStats(d.dateStr, kid));
+    container.appendChild(col);
+  });
+}
+
+function offsetDate(dateStr, days) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function showDayStats(dateStr, focusKid) {
+  dayStatsDate     = dateStr;
+  dayStatsFocusKid = focusKid || dayStatsFocusKid;
+
+  const today   = todayStr();
+  const minDate = offsetDate(today, -DAY_STATS_MAX_BACK);
+  const isToday = dateStr === today;
+  const d       = new Date(dateStr + 'T12:00:00');
+  const edit    = dayStatsEditMode;
+
+  document.getElementById('day-stats-title').textContent =
+    isToday ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'long' });
+  document.getElementById('day-stats-subtitle').textContent =
+    d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  document.getElementById('day-nav-prev').disabled = (dateStr <= minDate);
+  document.getElementById('day-nav-next').disabled = (dateStr >= today);
+
+  // Edit button label
+  const editBtn = document.getElementById('day-edit-btn');
+  editBtn.textContent = edit ? '✓ Done Editing' : '🔏 Edit';
+  editBtn.classList.toggle('active', edit);
+
+  const body = document.getElementById('day-stats-body');
+  body.innerHTML = '';
+
+  const kids = dayStatsFocusKid === 'wyatt' ? ['wyatt','wesley'] : ['wesley','wyatt'];
+
+  kids.forEach(kid => {
+    const kidLabel = kid === 'wesley' ? '🧑 Wesley' : '👦 Wyatt';
+    const comps    = (state.completions[dateStr] ||= {})[kid] ||= {};
+    const chores   = state.chores.filter(c => c.assignedTo === 'both' || c.assignedTo === kid);
+
+    let dayPts = 0;
+    chores.forEach(c => {
+      const comp = comps[String(c.id)];
+      if (isApprovedComp(comp)) dayPts += comp?.awardedPts ?? comp?.pts ?? c.points;
+    });
+    const section = document.createElement('div');
+    section.className = 'day-stats-kid';
+
+    const headerEl = document.createElement('div');
+    headerEl.className = 'day-stats-kid-label';
+    headerEl.innerHTML = `<span>${kidLabel}</span><span class="day-stats-kid-pts">${dayPts} pts earned</span>`;
+    section.appendChild(headerEl);
+
+    // In edit mode show ALL chores; in view mode skip untouched ones
+    const choresToShow = edit ? chores : chores.filter(c => compStatus(comps[String(c.id)]) !== 'none');
+    const dayBonusId   = state.bonusMissions[dateStr]?.[kid];
+
+    if (!edit && !choresToShow.length) {
+      const empty = document.createElement('div');
+      empty.className = 'day-empty';
+      empty.textContent = 'No chores recorded this day.';
+      section.appendChild(empty);
+    }
+
+    choresToShow.forEach(c => {
+      const comp      = comps[String(c.id)];
+      const status    = compStatus(comp);
+      const awarded   = comp?.awardedPts ?? comp?.pts ?? c.points;
+      const base      = comp?.basePts ?? c.points;
+      const isPartial = status === 'approved' && base > 0 && awarded < base;
+      const note      = comp?.note || '';
+      const isBonus   = dayBonusId !== undefined && c.id === dayBonusId;
+      const bonusMark = isBonus ? ' ⚡' : '';
+      const basePtsDisplay = comp?.basePts ?? (isBonus ? c.points * 2 : c.points);
+      const row       = document.createElement('div');
+      row.className   = 'day-chore-row' + (edit ? ' edit-mode' : '');
+
+      if (edit) {
+        const isChecked = status === 'approved' && !isPartial;
+        const toggleCls = isChecked ? 'day-chore-toggle checked' : isPartial ? 'day-chore-toggle partial' : 'day-chore-toggle';
+        const toggleTxt = isChecked ? '✓' : isPartial ? '◑' : '';
+        const nameStyle = isChecked ? 'day-chore-name crossed' : 'day-chore-name';
+        const ptsLabel  = status === 'none' ? `+${basePtsDisplay}pts` : isChecked ? `+${awarded}pts` : isPartial ? `${awarded}/${base}pts` : '🕐 pending';
+        const ptsCls    = status === 'none' ? 'day-chore-pts' : isChecked ? 'day-chore-pts full' : isPartial ? 'day-chore-pts partial' : 'day-chore-pts pending';
+        const toggle = document.createElement('button');
+        toggle.className = toggleCls;
+        toggle.textContent = toggleTxt;
+        toggle.addEventListener('click', () => toggleDayChore(kid, dateStr, String(c.id), basePtsDisplay, c.dollars || 0));
+        row.innerHTML = `<span class="${nameStyle}">${c.name}${bonusMark}${note ? `<span class="day-chore-note">📝 ${note}</span>` : ''}</span><span class="${ptsCls}">${ptsLabel}</span>`;
+        row.prepend(toggle);
+      } else {
+        let icon, nameClass, ptsText, ptsClass;
+        if (status === 'approved' && !isPartial) {
+          icon = '✓'; nameClass = 'day-chore-name crossed'; ptsText = `+${awarded}pts`; ptsClass = 'day-chore-pts full';
+        } else if (isPartial) {
+          icon = '◑'; nameClass = 'day-chore-name'; ptsText = `${awarded}/${base}pts`; ptsClass = 'day-chore-pts partial';
+        } else {
+          icon = '🕐'; nameClass = 'day-chore-name'; ptsText = 'Pending'; ptsClass = 'day-chore-pts pending';
+        }
+        row.innerHTML = `<span class="day-chore-icon">${icon}</span><span class="${nameClass}">${c.name}${bonusMark}${note ? `<span class="day-chore-note">📝 ${note}</span>` : ''}</span><span class="${ptsClass}">${ptsText}</span>`;
+      }
+      section.appendChild(row);
+    });
+
+    body.appendChild(section);
+  });
+
+  document.getElementById('day-stats-overlay').classList.add('open');
+}
+
+function stepDay(delta) {
+  const next = offsetDate(dayStatsDate, delta);
+  const today = todayStr();
+  const min   = offsetDate(today, -DAY_STATS_MAX_BACK);
+  if (next > today || next < min) return;
+  showDayStats(next, dayStatsFocusKid);
+}
+
+function openDayEdit() {
+  if (dayStatsEditMode) {
+    // Already in edit mode — toggle off
+    dayStatsEditMode = false;
+    showDayStats(dayStatsDate, dayStatsFocusKid);
+    return;
+  }
+  // Require PIN to enter edit mode
+  const ov = document.getElementById('pin-overlay');
+  ov.dataset.mode = 'dayedit';
+  document.getElementById('pin-context-msg').textContent = 'Enter parent PIN to edit this day\'s chores.';
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-error').textContent = '';
+  ov.classList.add('open');
+  setTimeout(() => document.getElementById('pin-input').focus(), 100);
+}
+
+function toggleDayChore(kid, dateStr, key, basePts, baseDollars) {
+  const month = dateStr.slice(0, 7);
+  if (!state.completions[dateStr])       state.completions[dateStr] = {};
+  if (!state.completions[dateStr][kid])  state.completions[dateStr][kid] = {};
+  const comps  = state.completions[dateStr][kid];
+  const comp   = comps[key];
+  const status = compStatus(comp);
+
+  if (status === 'approved') {
+    // Un-mark: reverse awarded points
+    const awardedPts = comp?.awardedPts ?? comp?.pts ?? basePts;
+    state.kids[kid].totalPoints = Math.max(0, (state.kids[kid].totalPoints || 0) - awardedPts);
+    delete comps[key];
+  } else {
+    // Mark as fully approved at 100%
+    // First reverse any partial/pending award
+    if (comp && (comp.awardedPts || comp.pts)) {
+      const prev = comp.awardedPts ?? comp.pts ?? 0;
+      state.kids[kid].totalPoints = Math.max(0, (state.kids[kid].totalPoints || 0) - prev);
+    }
+    // Award full points
+    state.kids[kid].totalPoints = (state.kids[kid].totalPoints || 0) + basePts;
+    comps[key] = { status:'approved', basePts, awardedPts: basePts, note:'', submittedAt:0, approvedAt: Date.now() };
+  }
+
+  recalcMonthlyEarnings(kid);
+  checkAchievements(kid);
+  saveState(state);
+  render();
+  // Re-render the modal in place
+  showDayStats(dayStatsDate, dayStatsFocusKid);
+}
+
+function renderFamilyChallenge() {
+  const fc=state.familyChallenge, weekPts=getFamilyWeeklyPoints();
+  const pct=Math.min(100,Math.round((weekPts/fc.target)*100));
+  document.getElementById('fc-pts').textContent=weekPts;
+  document.getElementById('fc-target').textContent=fc.target;
+  document.getElementById('fc-reward-label').textContent=fc.reward||'';
+  document.getElementById('fc-bar').style.width=pct+'%';
+  const comp=document.getElementById('fc-completed');
+  if(fc.completed){comp.style.display='block';}
+  else{
+    comp.style.display='none';
+    if(weekPts>=fc.target){
+      state.familyChallenge.completed=true;
+      ['wesley','wyatt'].forEach(kid=>{
+        if(!state.kids[kid].achievements)state.kids[kid].achievements=[];
+        if(!state.kids[kid].achievements.includes('team_player'))state.kids[kid].achievements.push('team_player');
+      });
+      saveState(state); comp.style.display='block';
+      showToast('🏠 Family Challenge Complete! Amazing teamwork!');
+    }
+  }
+}
+
+function countSubmittedChores() {
+  let n = 0;
+  Object.values(state.completions).forEach(day =>
+    ['wesley','wyatt'].forEach(kid =>
+      Object.values(day[kid]||{}).forEach(c => { if(compStatus(c)==='submitted') n++; })
+    )
+  );
+  return n;
+}
+
+function updateParentBadge() {
+  const count=(state.pendingRedemptions||[]).length+(state.jackpots||[]).filter(j=>!j.paid).length+countSubmittedChores();
+  const btn=document.getElementById('parent-btn');
+  const ex=btn.querySelector('.parent-badge'); if(ex)ex.remove();
+  if(count>0){const b=document.createElement('span');b.className='parent-badge';b.textContent=count;btn.appendChild(b);}
+}
+
+function renderRewards() {
+  const grid=document.getElementById('rewards-grid'); grid.innerHTML='';
+  const wPts=getAvailablePoints('wesley'), yPts=getAvailablePoints('wyatt');
+  const wBal=getAvailableBalance('wesley'), yBal=getAvailableBalance('wyatt');
+  state.rewards.forEach(r=>{
+    const wCanPts=wPts>=r.cost, yCanPts=yPts>=r.cost;
+    const wCanDlr=wBal>=(r.dollars||0), yCanDlr=yBal>=(r.dollars||0);
+    const canAfford=wCanPts||yCanPts||wCanDlr||yCanDlr;
+    const card=document.createElement('div'); card.className='reward-card';
+    card.innerHTML=`
+      <div class="reward-emoji">${r.emoji}</div>
+      <div class="reward-name">${r.name}</div>
+      <div class="reward-cost-row">
+        <span class="reward-cost-pts">⭐ ${r.cost} pts</span>
+        <span class="reward-cost-dlr">💵 ${fmt$(r.dollars||0)}</span>
+      </div>
+      <div class="afford-row">
+        <span class="afford-tag ${(wCanPts||wCanDlr)?'can':'cannot'}">🧑 ${(wCanPts||wCanDlr)?'✓':'✗'}</span>
+        <span class="afford-tag ${(yCanPts||yCanDlr)?'can':'cannot'}">👦 ${(yCanPts||yCanDlr)?'✓':'✗'}</span>
+      </div>
+      <button class="redeem-btn" ${canAfford?'':'disabled'} onclick="openRedeem(${r.id})">
+        ${canAfford?'Redeem 🎁':'Need more pts/$$'}
+      </button>`;
+    grid.appendChild(card);
+  });
+}
+
+function renderMoneyDashboard() {
+  const month=monthStr();
+  ['wesley','wyatt'].forEach(kid=>{
+    const thisMonth=round2((state.kids[kid].monthlyEarnings||{})[month]||0);
+    const lifetime=getLifetimeEarned(kid);
+    const balance=getAvailableBalance(kid);
+    const paidOut=getLifetimePaidOut(kid);
+    const row=document.getElementById(`money-row-${kid}`);
+    if(row) row.innerHTML=`
+      <td>${kid==='wesley'?'🧑 Wesley':'👦 Wyatt'}</td>
+      <td class="money-green">${fmt$(thisMonth)} / $40</td>
+      <td>${fmt$(lifetime)}</td>
+      <td class="money-green">${fmt$(balance)}</td>
+      <td>${fmt$(paidOut)}</td>`;
+  });
+
+  // Jackpot approvals
+  const jSec=document.getElementById('jackpot-approvals-section');
+  const jList=document.getElementById('jackpot-approvals-list');
+  const unpaid=(state.jackpots||[]).filter(j=>!j.paid);
+  jSec.style.display=unpaid.length?'block':'none';
+  jList.innerHTML='';
+  unpaid.forEach(j=>{
+    const kidName=j.kidId==='wesley'?'Wesley':'Wyatt';
+    const div=document.createElement('div'); div.className='jackpot-approval-item';
+    div.innerHTML=`<div class="jackpot-info"><div>🎰 ${kidName} — $${j.amount} Jackpot</div><div class="jackpot-month-label">${j.month}</div></div><button class="btn btn-add" style="padding:6px 12px;font-size:0.78rem" onclick="approveJackpot('${j.id}')">Approve & Pay 🎰</button>`;
+    jList.appendChild(div);
+  });
+
+  // Payout history
+  const histList=document.getElementById('payout-history-list'); histList.innerHTML='';
+  const recent=[...(state.payouts||[])].reverse().slice(0,10);
+  if(!recent.length){histList.innerHTML='<li style="color:#5a6480;font-size:0.8rem;padding:6px">No payouts yet.</li>';return;}
+  recent.forEach(p=>{
+    const li=document.createElement('li'); li.className='manage-item';
+    li.innerHTML=`<span>${p.date}</span><span>${p.kidId==='wesley'?'🧑 Wesley':'👦 Wyatt'}</span><span class="badge-green">${fmt$(p.amount)}</span>`;
+    histList.appendChild(li);
+  });
+}
+
+function populateAdjFields() {
+  const month = monthStr();
+  ['wesley','wyatt'].forEach(kid=>{
+    const kd=state.kids[kid];
+    document.getElementById(`adj-pts-${kid}`).value    = kd.totalPoints||0;
+    document.getElementById(`adj-streak-${kid}`).value = kd.streak||0;
+    document.getElementById(`adj-bal-${kid}`).value    = round2((kd.monthlyEarnings||{})[month]||0).toFixed(2);
+  });
+}
+
+function timeAgo(ts) {
+  const secs = Math.floor((Date.now() - ts) / 1000);
+  if (secs < 60)   return 'just now';
+  if (secs < 3600) return Math.floor(secs/60) + 'm ago';
+  if (secs < 86400)return Math.floor(secs/3600) + 'h ago';
+  return Math.floor(secs/86400) + 'd ago';
+}
+
+function renderApprovalQueue() {
+  const section    = document.getElementById('approval-queue-section');
+  const list       = document.getElementById('approval-queue-list');
+  const countBadge = document.getElementById('approval-queue-count');
+  const kids = ['wesley','wyatt'];
+  const groups = {};
+
+  Object.entries(state.completions).forEach(([date, dayData]) => {
+    kids.forEach(kid => {
+      Object.entries(dayData[kid] || {}).forEach(([key, comp]) => {
+        if (compStatus(comp) !== 'submitted') return;
+        const chore     = state.chores.find(c => String(c.id) === key);
+        if (!chore) return; // skip any stale 'bonus' key entries
+        const bonusId   = state.bonusMissions[date]?.[kid];
+        const isBonus   = chore.id === bonusId;
+        const choreName = (isBonus ? '⚡ ' : '') + chore.name;
+        const basePts   = comp.basePts ?? chore.points ?? 0;
+        if (!groups[kid]) groups[kid] = [];
+        groups[kid].push({ date, key, choreName, basePts, submittedAt: comp.submittedAt || 0 });
+      });
+    });
+  });
+
+  const totalPending = Object.values(groups).reduce((s, arr) => s + arr.length, 0);
+  countBadge.textContent = totalPending || '';
+  countBadge.style.display = totalPending ? 'inline-flex' : 'none';
+  section.style.display    = totalPending ? 'block' : 'none';
+  if (!totalPending) { list.innerHTML = ''; return; }
+
+  list.innerHTML = '';
+  kids.forEach(kid => {
+    const items = groups[kid];
+    if (!items?.length) return;
+    const kidLabel = kid === 'wesley' ? '🧑 Wesley' : '👦 Wyatt';
+    const group = document.createElement('div');
+    group.className = 'approval-kid-group';
+    group.innerHTML = `<div class="approval-kid-label">${kidLabel}</div>`;
+
+    items.sort((a,b) => a.submittedAt - b.submittedAt).forEach(item => {
+      const PCTS = [0.25, 0.5, 0.75, 1];
+      let selectedPct = 1; // default 100%
+
+      const card = document.createElement('div');
+      card.className = 'approval-item';
+
+      // Pct buttons row
+      const pctRow = document.createElement('div');
+      pctRow.className = 'pct-row';
+      PCTS.forEach(pct => {
+        const pts = Math.round(item.basePts * pct);
+        const btn = document.createElement('button');
+        btn.className = 'pct-btn' + (pct === 1 ? ' selected' : '');
+        btn.innerHTML = `${pct*100}%<br><span style="font-size:0.8em;opacity:0.85">${pts}pts</span>`;
+        btn.addEventListener('click', () => {
+          selectedPct = pct;
+          pctRow.querySelectorAll('.pct-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+        pctRow.appendChild(btn);
+      });
+
+      // Note input
+      const noteInput = document.createElement('textarea');
+      noteInput.className   = 'approval-note';
+      noteInput.rows        = 2;
+      noteInput.placeholder = 'Optional note (e.g. "Good job, but missed under the bed")';
+
+      // Action buttons
+      const actions = document.createElement('div');
+      actions.className = 'approval-actions';
+
+      const approveBtn = document.createElement('button');
+      approveBtn.className   = 'btn-approve';
+      approveBtn.textContent = '✓ Approve';
+      approveBtn.addEventListener('click', () =>
+        approveSubmission(kid, item.date, item.key, selectedPct, noteInput.value.trim())
+      );
+
+      const sendBackBtn = document.createElement('button');
+      sendBackBtn.className   = 'btn-sendback';
+      sendBackBtn.textContent = '↩ Send Back';
+      sendBackBtn.addEventListener('click', () =>
+        sendBackSubmission(kid, item.date, item.key, noteInput.value.trim())
+      );
+
+      actions.appendChild(approveBtn);
+      actions.appendChild(sendBackBtn);
+
+      // Assemble header + rows
+      const header = document.createElement('div');
+      header.className = 'approval-item-header';
+      header.innerHTML = `<span class="approval-chore-name">${item.choreName}</span><span class="approval-time">${timeAgo(item.submittedAt)}</span>`;
+
+      card.appendChild(header);
+      card.appendChild(pctRow);
+      card.appendChild(noteInput);
+      card.appendChild(actions);
+      group.appendChild(card);
+    });
+    list.appendChild(group);
+  });
+}
+
+function approveSubmission(kid, date, key, pct, note) {
+  const comp = state.completions[date]?.[kid]?.[key];
+  if (!comp || compStatus(comp) !== 'submitted') return;
+
+  const month       = date.slice(0, 7);
+  const awardedPts  = Math.round((comp.basePts || 0) * pct);
+
+  // Award points
+  state.kids[kid].totalPoints = (state.kids[kid].totalPoints || 0) + awardedPts;
+
+  // Mark approved with full record (dollars computed dynamically from point_value)
+  state.completions[date][kid][key] = {
+    status:      'approved',
+    basePts:     comp.basePts,
+    awardedPts,
+    note:        note || '',
+    submittedAt: comp.submittedAt,
+    approvedAt:  Date.now(),
+  };
+
+  // Recalculate monthly earnings using point_value formula
+  recalcMonthlyEarnings(kid);
+
+  checkAchievements(kid);
+  saveState(state);
+  renderManageLists();
+  render();
+
+  const kidName  = kid === 'wesley' ? 'Wesley' : 'Wyatt';
+  const earned   = round2((state.kids[kid].monthlyEarnings || {})[month] || 0);
+  const dolMsg   = awardedPts > 0 ? ` · ${fmt$(earned)} this month` : '';
+  showToast(`✅ Approved! +${awardedPts}pts${dolMsg} for ${kidName}`);
+}
+
+function sendBackSubmission(kid, date, key, note='') {
+  const comp = state.completions[date]?.[kid]?.[key];
+  if (!comp) return;
+  // Keep the note so the kid can see why it was sent back; mark as sent_back (not deleted)
+  state.completions[date][kid][key] = {
+    status: 'sent_back',
+    note: note || comp.note || '',   // prefer freshly typed note; fall back to any prior note
+    basePts: comp.basePts || 0,
+    sentBackAt: Date.now(),
+  };
+  checkAchievements(kid);
+  saveState(state);
+  renderManageLists();
+  render();
+  const kidName = kid === 'wesley' ? 'Wesley' : 'Wyatt';
+  showToast(`↩ Sent back to ${kidName} — note left for them.`);
+}
+
+function resubmitChore(kid, choreId, isBonus) {
+  const today = todayStr(), month = monthStr();
+  const comps = state.completions[today]?.[kid];
+  if (!comps) return;
+  const key  = String(choreId);
+  const comp = comps[key];
+  if (!comp || compStatus(comp) !== 'approved') return;
+
+  // Reverse the partial points already awarded
+  const awardedPts = comp.awardedPts || 0;
+  state.kids[kid].totalPoints = Math.max(0, (state.kids[kid].totalPoints || 0) - awardedPts);
+
+  // Reset to submitted so it appears in the parent approval queue again
+  comps[key] = {
+    status:      'submitted',
+    basePts:     comp.basePts,
+    submittedAt: Date.now(),
+  };
+
+  recalcMonthlyEarnings(kid);
+
+  saveState(state);
+  render();
+  showToast('⏳ Resubmitted! Waiting for parent approval.');
+}
+
+function renderManageLists() {
+  renderMoneyDashboard();
+  renderApprovalQueue();
+  populateAdjFields();
+
+  // Pending approvals
+  const ps=document.getElementById('pending-section');
+  const pl=document.getElementById('pending-list');
+  const pending=state.pendingRedemptions||[];
+  pl.innerHTML='';
+  if(pending.length){
+    ps.style.display='block';
+    pending.forEach(p=>{
+      const kidName=p.kidId==='wesley'?'Wesley':'Wyatt';
+      const payLabel=p.paymentType==='dollars'?`💵 ${fmt$(p.rewardDollars||0)}`:`⭐ ${p.rewardCost}pts`;
+      const li=document.createElement('li'); li.className='manage-item';
+      li.innerHTML=`<span>${p.rewardEmoji} ${p.rewardName}</span><span class="badge">${kidName}</span><span class="badge">${payLabel}</span><button class="btn-approve" onclick="approveRedemption('${p.id}')">✓</button><button class="btn-deny" onclick="denyRedemption('${p.id}')">✗</button>`;
+      pl.appendChild(li);
+    });
+  }else{ps.style.display='none';}
+
+  // Chores
+  const mc=document.getElementById('manage-chores'); mc.innerHTML='';
+  state.chores.forEach(c=>{
+    const who=c.assignedTo==='both'?'Both':c.assignedTo==='wesley'?'Wesley':'Wyatt';
+    const diff=c.difficulty||'easy';
+    const li=document.createElement('li'); li.className='manage-item';
+    li.innerHTML=`
+      <span>${c.name}</span>
+      <select class="chore-diff-select" data-field="assignedTo">
+        <option value="both"   ${c.assignedTo==='both'   ?'selected':''}>Both</option>
+        <option value="wesley" ${c.assignedTo==='wesley' ?'selected':''}>Wesley</option>
+        <option value="wyatt"  ${c.assignedTo==='wyatt'  ?'selected':''}>Wyatt</option>
+      </select>
+      <label class="chore-input-lbl"><span>pts</span><input class="chore-pts-input" type="number" min="1" max="999" step="1"  value="${c.points}"             data-field="points"></label>
+      <label class="chore-input-lbl"><span>$</span>  <input class="chore-dlr-input" type="number" min="0" max="9.99" step="0.05" value="${(c.dollars||0).toFixed(2)}" data-field="dollars"></label>
+      <select class="chore-diff-select" data-field="difficulty">
+        <option value="easy"  ${diff==='easy'  ?'selected':''}>Easy</option>
+        <option value="medium"${diff==='medium'?'selected':''}>Medium</option>
+        <option value="hard"  ${diff==='hard'  ?'selected':''}>Hard</option>
+      </select>
+      <button class="del-btn" onclick="deleteChore(${c.id})">🗑</button>`;
+    li.querySelector('[data-field="assignedTo"]').addEventListener('change', e => updateChore(c.id, 'assignedTo', e.target.value));
+    li.querySelector('[data-field="dollars"]').addEventListener('change', e => updateChore(c.id, 'dollars', round2(parseFloat(e.target.value)||0)));
+    li.querySelector('[data-field="difficulty"]').addEventListener('change', e => {
+      const newDiff = e.target.value;
+      const newPts  = DIFF_PTS[newDiff] || 5;
+      const ptsInput = li.querySelector('[data-field="points"]');
+      if (ptsInput) ptsInput.value = newPts;
+      const chore = state.chores.find(c2 => c2.id === c.id);
+      if (chore) { chore.difficulty = newDiff; chore.points = newPts; }
+      recalcMonthlyEarnings('wesley');
+      recalcMonthlyEarnings('wyatt');
+      saveState(state); render();
+      showToast('Chore updated!');
+    });
+    mc.appendChild(li);
+  });
+
+  // Rewards
+  const mr=document.getElementById('manage-rewards'); mr.innerHTML='';
+  state.rewards.forEach(r=>{
+    const li=document.createElement('li'); li.className='manage-item';
+    li.innerHTML=`<span>${r.emoji} ${r.name}</span><span class="badge">${r.cost}pts</span><span class="badge-green">${fmt$(r.dollars||0)}</span><button class="del-btn" onclick="deleteReward(${r.id})">🗑</button>`;
+    mr.appendChild(li);
+  });
+}
+
+function render() {
+  // state is managed by Firebase listener — do NOT overwrite from localStorage here
+  checkAchievements('wesley'); checkAchievements('wyatt');
+  saveState(state); // persists achievements + triggers debounced Firebase write
+  renderKid('wesley'); renderKid('wyatt');
+  renderAchievements('wesley'); renderAchievements('wyatt');
+  renderWeeklyChart('wesley'); renderWeeklyChart('wyatt');
+  renderRewards(); renderFamilyChallenge(); updateParentBadge();
+  document.getElementById('date-display').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+}
+
+// ══════════════════════════════════════════
+//  TOGGLE CHORE
+// ══════════════════════════════════════════
+let pendingUncheck=null;
+
+function toggleChore(kid, choreId, points, isBonus) {
+  const today=todayStr();
+  if(!state.completions[today])state.completions[today]={};
+  if(!state.completions[today][kid])state.completions[today][kid]={};
+  const comps=state.completions[today][kid];
+  const key=String(choreId);
+
+  // Already submitted or approved — locked; sent_back compStatus returns 'none' so it's allowed
+  if(comps[key] && compStatus(comps[key]) !== 'none') return;
+
+  const basePts=points;
+
+  // Mark as submitted — points/dollars awarded only when parent approves
+  comps[key]={ status:'submitted', basePts, submittedAt:Date.now() };
+
+  saveState(state);
+  render();
+  const kidName=kid==='wesley'?'Wesley':'Wyatt';
+  showToast(`⏳ Submitted! Waiting for parent approval.`);
+}
+
+function requestUncheck(kid,choreId,points,isBonus){
+  pendingUncheck={kid,choreId,points,isBonus};
+  const ov=document.getElementById('pin-overlay');
+  ov.dataset.mode='uncheck';
+  document.getElementById('pin-context-msg').textContent='Enter parent PIN to uncheck this chore.';
+  document.getElementById('pin-input').value='';
+  document.getElementById('pin-error').textContent='';
+  ov.classList.add('open');
+  setTimeout(()=>document.getElementById('pin-input').focus(),100);
+}
+function doUncheck(kid,choreId,points,isBonus){
+  const today=todayStr(), month=monthStr();
+  const comps=state.completions[today]?.[kid]||{};
+  const key=String(choreId);
+  const stored=comps[key];
+  delete comps[key];
+
+  // Reverse points — use stored value if available, fall back to base
+  const actualPoints=(stored&&typeof stored==='object')?stored.pts:points;
+  state.kids[kid].totalPoints=Math.max(0,(state.kids[kid].totalPoints||0)-actualPoints);
+
+  recalcMonthlyEarnings(kid);
+  saveState(state); render(); showToast('Chore unchecked.');
+}
+
+// ══════════════════════════════════════════
+//  PIN
+// ══════════════════════════════════════════
+function openParentPanel(){
+  const ov=document.getElementById('pin-overlay');
+  ov.dataset.mode='parent';
+  document.getElementById('pin-context-msg').textContent='Enter your 4-digit PIN to manage chores and rewards.';
+  document.getElementById('pin-input').value='';
+  document.getElementById('pin-error').textContent='';
+  ov.classList.add('open');
+  setTimeout(()=>document.getElementById('pin-input').focus(),100);
+}
+function checkPin(){
+  const entered=document.getElementById('pin-input').value;
+  const mode=document.getElementById('pin-overlay').dataset.mode||'parent';
+  if(!checkPinMatch(entered)){
+    document.getElementById('pin-error').textContent='❌ Incorrect PIN. Try again.';
+    document.getElementById('pin-input').value=''; return;
+  }
+  closeOverlay('pin-overlay');
+  if(mode==='uncheck'&&pendingUncheck){
+    const {kid,choreId,points,isBonus}=pendingUncheck; pendingUncheck=null;
+    doUncheck(kid,choreId,points,isBonus);
+  }else if(mode==='dayedit'){
+    dayStatsEditMode=true;
+    showDayStats(dayStatsDate, dayStatsFocusKid);
+  }else{
+    renderManageLists();
+    selectPayoutKid('wesley');
+    document.getElementById('parent-overlay').classList.add('open');
+  }
+}
+function cancelPin(){pendingUncheck=null;closeOverlay('pin-overlay');}
+function changePin(){
+  const v=document.getElementById('new-pin').value.trim();
+  if(!/^\d{4}$/.test(v)){alert('PIN must be exactly 4 digits.');return;}
+  state.pin=encodePin(v); saveState(state);
+  document.getElementById('new-pin').value=''; showToast('PIN updated! 🔒');
+}
+
+// ══════════════════════════════════════════
+//  CHORES
+// ══════════════════════════════════════════
+function addChore(){
+  const name=document.getElementById('new-chore-name').value.trim();
+  const kid=document.getElementById('new-chore-kid').value;
+  const diff=document.getElementById('new-chore-diff').value||'easy';
+  const pts=DIFF_PTS[diff]||5;
+  if(!name){alert('Please enter a chore name.');return;}
+  const maxId=state.chores.reduce((m,c)=>Math.max(m,c.id),0);
+  state.chores.push({id:maxId+1,name,points:pts,dollars:0,assignedTo:kid,difficulty:diff});
+  recalcMonthlyEarnings('wesley');
+  recalcMonthlyEarnings('wyatt');
+  saveState(state);
+  document.getElementById('new-chore-name').value='';
+  renderManageLists(); render();
+}
+function deleteChore(id){
+  if(!confirm('Delete this chore?'))return;
+  state.chores=state.chores.filter(c=>c.id!==id);
+  recalcMonthlyEarnings('wesley');
+  recalcMonthlyEarnings('wyatt');
+  saveState(state); renderManageLists(); render();
+}
+
+function updateChore(id, field, value){
+  const chore=state.chores.find(c=>c.id===id); if(!chore)return;
+  chore[field]=value;
+  recalcMonthlyEarnings('wesley');
+  recalcMonthlyEarnings('wyatt');
+  saveState(state); render();
+  showToast(`Chore updated!`);
+}
+
+function adjustKidStats(kid){
+  const month = monthStr();
+  const newPts    = parseInt(document.getElementById(`adj-pts-${kid}`).value);
+  const newStreak = parseInt(document.getElementById(`adj-streak-${kid}`).value);
+  const newBal    = parseFloat(document.getElementById(`adj-bal-${kid}`).value);
+  if(!isNaN(newPts)    && newPts    >= 0) state.kids[kid].totalPoints = newPts;
+  if(!isNaN(newStreak) && newStreak >= 0) state.kids[kid].streak      = newStreak;
+  if(!isNaN(newBal)    && newBal    >= 0) {
+    // Manual override — write directly to stored earnings and balance.
+    // renderKid reads the stored value, so this will be respected on the next render.
+    if(!state.kids[kid].monthlyEarnings) state.kids[kid].monthlyEarnings = {};
+    const oldEarned = round2(state.kids[kid].monthlyEarnings[month] || 0);
+    state.kids[kid].monthlyEarnings[month] = round2(newBal);
+    // Shift available balance by the same delta
+    const delta = round2(newBal - oldEarned);
+    state.kids[kid].availableBalance = round2(Math.max(0, (state.kids[kid].availableBalance || 0) + delta));
+  }
+  saveState(state); render(); populateAdjFields();
+  showToast(`${kid==='wesley'?'Wesley':'Wyatt'}'s stats updated!`);
+}
+function manualReset(){
+  if(!confirm('Reset today\'s completed chores for both kids?'))return;
+  const today=todayStr();
+  if(state.completions[today])delete state.completions[today];
+  saveState(state); renderManageLists(); render();
+  showToast('Chores reset! Fresh start 🌅');
+}
+
+// ══════════════════════════════════════════
+//  REWARDS
+// ══════════════════════════════════════════
+function addReward(){
+  const emoji=document.getElementById('new-reward-emoji').value.trim()||'🎁';
+  const name=document.getElementById('new-reward-name').value.trim();
+  const cost=parseInt(document.getElementById('new-reward-cost').value);
+  const dollars=parseFloat(document.getElementById('new-reward-dollars').value)||0;
+  if(!name||!cost||cost<1){alert('Please enter a name and cost.');return;}
+  const maxId=state.rewards.reduce((m,r)=>Math.max(m,r.id),0);
+  state.rewards.push({id:maxId+1,emoji,name,cost,dollars:round2(dollars)});
+  saveState(state);
+  ['new-reward-emoji','new-reward-name','new-reward-cost','new-reward-dollars'].forEach(id=>document.getElementById(id).value='');
+  renderManageLists(); render();
+}
+function deleteReward(id){
+  if(!confirm('Delete this reward?'))return;
+  state.rewards=state.rewards.filter(r=>r.id!==id);
+  saveState(state); renderManageLists(); render();
+}
+
+// ══════════════════════════════════════════
+//  REDEMPTION
+// ══════════════════════════════════════════
+let pendingRedeemId=null, pendingRedeemKid='wesley', pendingPayMethod='points';
+
+function openRedeem(rewardId){
+  const r=state.rewards.find(r=>r.id===rewardId); if(!r)return;
+  pendingRedeemId=rewardId;
+  document.getElementById('redeem-emoji').textContent=r.emoji;
+  document.getElementById('redeem-name').textContent=r.name;
+  const wCanPts=getAvailablePoints('wesley')>=r.cost;
+  const yCan=getAvailablePoints('wyatt')>=r.cost;
+  selectRedeemKid(wCanPts?'wesley':(yCan?'wyatt':'wesley'));
+  setPayMethod('points');
+  document.getElementById('redeem-overlay').classList.add('open');
+}
+function selectRedeemKid(kid){
+  pendingRedeemKid=kid;
+  document.getElementById('redeem-kid-wesley').classList.toggle('active',kid==='wesley');
+  document.getElementById('redeem-kid-wyatt').classList.toggle('active',kid==='wyatt');
+  updateRedeemDesc();
+}
+function setPayMethod(method){
+  pendingPayMethod=method;
+  document.getElementById('pay-points-btn').classList.toggle('active',method==='points');
+  document.getElementById('pay-dollars-btn').classList.toggle('active',method==='dollars');
+  updateRedeemDesc();
+}
+function updateRedeemDesc(){
+  const r=state.rewards.find(r=>r.id===pendingRedeemId); if(!r)return;
+  if(pendingPayMethod==='dollars'){
+    const avail=getAvailableBalance(pendingRedeemKid);
+    document.getElementById('redeem-desc').textContent=`Costs ${fmt$(r.dollars||0)} from earnings. Available: ${fmt$(avail)}`;
+  }else{
+    const avail=getAvailablePoints(pendingRedeemKid);
+    document.getElementById('redeem-desc').textContent=`Costs ${r.cost} points. Available: ${avail} pts`;
+  }
+}
+function confirmRedeem(){
+  const r=state.rewards.find(r=>r.id===pendingRedeemId); if(!r)return;
+  const kidName=pendingRedeemKid==='wesley'?'Wesley':'Wyatt';
+  if(pendingPayMethod==='dollars'){
+    const cost=r.dollars||0;
+    if(getAvailableBalance(pendingRedeemKid)<cost-0.001){alert(`${kidName} doesn't have enough earnings!`);return;}
+    state.pendingRedemptions.push({id:Date.now().toString(),rewardId:r.id,kidId:pendingRedeemKid,rewardName:r.name,rewardEmoji:r.emoji,rewardCost:r.cost,rewardDollars:cost,paymentType:'dollars',timestamp:Date.now()});
+  }else{
+    if(getAvailablePoints(pendingRedeemKid)<r.cost){alert(`${kidName} doesn't have enough points!`);return;}
+    state.pendingRedemptions.push({id:Date.now().toString(),rewardId:r.id,kidId:pendingRedeemKid,rewardName:r.name,rewardEmoji:r.emoji,rewardCost:r.cost,rewardDollars:0,paymentType:'points',timestamp:Date.now()});
+  }
+  saveState(state); closeOverlay('redeem-overlay'); render();
+  showToast('Requested! Waiting for parent approval... ⏳');
+}
+function approveRedemption(id){
+  const p=(state.pendingRedemptions||[]).find(x=>x.id===id); if(!p)return;
+  if(p.paymentType==='dollars'){
+    state.kids[p.kidId].availableBalance=round2(Math.max(0,(state.kids[p.kidId].availableBalance||0)-(p.rewardDollars||0)));
+  }else{
+    state.kids[p.kidId].spentPoints=(state.kids[p.kidId].spentPoints||0)+p.rewardCost;
+  }
+  state.pendingRedemptions=state.pendingRedemptions.filter(x=>x.id!==id);
+  saveState(state); renderManageLists(); render();
+  showToast(`${p.rewardEmoji} Approved! Enjoy! 🎉`);
+}
+function denyRedemption(id){
+  state.pendingRedemptions=(state.pendingRedemptions||[]).filter(x=>x.id!==id);
+  saveState(state); renderManageLists(); render();
+  showToast('Redemption request denied.');
+}
+
+// ══════════════════════════════════════════
+//  PAYOUTS
+// ══════════════════════════════════════════
+let payoutKid='wesley';
+function selectPayoutKid(kid){
+  payoutKid=kid;
+  document.getElementById('payout-kid-wesley').classList.toggle('active',kid==='wesley');
+  document.getElementById('payout-kid-wyatt').classList.toggle('active',kid==='wyatt');
+  document.getElementById('payout-amount').value=getAvailableBalance(kid).toFixed(2);
+}
+function markPayout(){
+  const amount=parseFloat(document.getElementById('payout-amount').value);
+  if(isNaN(amount)||amount<=0){alert('Enter a valid amount.');return;}
+  const avail=getAvailableBalance(payoutKid);
+  if(amount>avail+0.005){alert(`${payoutKid==='wesley'?'Wesley':'Wyatt'} only has ${fmt$(avail)} available.`);return;}
+  if(!state.payouts)state.payouts=[];
+  state.payouts.push({id:Date.now().toString(),kidId:payoutKid,amount:round2(amount),date:todayStr()});
+  state.kids[payoutKid].availableBalance=round2(Math.max(0,(state.kids[payoutKid].availableBalance||0)-amount));
+  saveState(state);
+  document.getElementById('payout-amount').value='';
+  renderMoneyDashboard(); render();
+  showToast(`💵 Paid ${fmt$(amount)} to ${payoutKid==='wesley'?'Wesley':'Wyatt'}!`);
+}
+
+// ══════════════════════════════════════════
+//  JACKPOT APPROVAL
+// ══════════════════════════════════════════
+function approveJackpot(id){
+  const j=(state.jackpots||[]).find(x=>x.id===id); if(!j||j.paid)return;
+  j.paid=true;
+  state.kids[j.kidId].availableBalance=round2((state.kids[j.kidId].availableBalance||0)+j.amount);
+  saveState(state); renderMoneyDashboard(); render();
+  setTimeout(()=>triggerLevelUpCelebration(j.kidId,{name:'💰 $50 JACKPOT! 🎰'}),200);
+  showToast(`🎰 $50 Jackpot approved for ${j.kidId==='wesley'?'Wesley':'Wyatt'}!`);
+}
+
+// ══════════════════════════════════════════
+//  FAMILY CHALLENGE CONTROLS
+// ══════════════════════════════════════════
+function updateFamilyChallenge(){
+  const t=parseInt(document.getElementById('fc-target-input').value);
+  const r=document.getElementById('fc-reward-input').value.trim();
+  if(!isNaN(t)&&t>0)state.familyChallenge.target=t;
+  if(r)state.familyChallenge.reward=r;
+  saveState(state);
+  document.getElementById('fc-target-input').value='';
+  document.getElementById('fc-reward-input').value='';
+  render(); showToast('Family Challenge updated!');
+}
+function resetFamilyChallenge(){
+  state.familyChallenge.weekStart=todayStr();
+  state.familyChallenge.completed=false;
+  saveState(state); render(); showToast('Family Challenge week reset!');
+}
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+function closeOverlay(id){document.getElementById(id).classList.remove('open');}
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ══════════════════════════════════════════
+//  EVENT LISTENERS
+// ══════════════════════════════════════════
+document.getElementById('parent-btn').addEventListener('click',openParentPanel);
+document.getElementById('pin-input').addEventListener('keydown',e=>{if(e.key==='Enter')checkPin();});
+['pin-overlay','parent-overlay','redeem-overlay'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){
+    if(e.target===this){if(id==='pin-overlay')cancelPin();else closeOverlay(id);}
+  });
+});
+document.getElementById('levelup-overlay').addEventListener('click',function(){this.style.display='none';});
+
+// ══════════════════════════════════════════
+//  INIT — Firebase real-time sync
+// ══════════════════════════════════════════
+
+// Fast first paint from localStorage while Firebase connects
+state = getState();
+render();
+initialized = true;
+
+// Connect to Firebase
+firebase.initializeApp({ databaseURL: 'https://chore-quest-38b1d-default-rtdb.firebaseio.com' });
+_fbRef = firebase.database().ref('cq');
+
+// Show a subtle sync indicator
+function _setSyncStatus(msg, color) {
+  let el = document.getElementById('sync-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color;
+}
+
+_fbRef.on('value', snapshot => {
+  const data = snapshot.val();
+  const json = JSON.stringify(data);
+
+  if (!data) {
+    // First ever launch — push local state up to Firebase
+    _fbLastJSON = JSON.stringify(state);
+    _fbRef.set(JSON.parse(_fbLastJSON));
+    _setSyncStatus('☁️ Synced', '#43e97b');
+    return;
+  }
+
+  if (json === _fbLastJSON) {
+    // Our own write echoed back — skip re-render
+    _setSyncStatus('☁️ Synced', '#43e97b');
+    return;
+  }
+
+  // Another device made a change — update and re-render
+  _fbLastJSON = json;
+  state = getState(data);
+  render();
+  _setSyncStatus('☁️ Synced', '#43e97b');
+});
+
+_fbRef.on('value', () => {}, err => {
+  _setSyncStatus('⚠️ Offline', '#f9d423');
+});
+
+firebase.database().ref('.info/connected').on('value', snap => {
+  _setSyncStatus(snap.val() ? '☁️ Synced' : '⚠️ Offline', snap.val() ? '#43e97b' : '#f9d423');
+});
+</script>
+
+<!-- Shared badge tooltip -->
+<div id="badge-tooltip">
+  <div class="tip-title" id="tip-title"></div>
+  <div class="tip-desc"  id="tip-desc"></div>
+  <div class="tip-progress-label" id="tip-progress-label"></div>
+  <div class="tip-progress-bar-bg" id="tip-bar-bg">
+    <div class="tip-progress-bar-fill" id="tip-bar-fill" style="width:0%"></div>
+  </div>
+  <div class="tip-status" id="tip-status"></div>
+</div>
+</body>
+</html>
