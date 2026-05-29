@@ -2983,7 +2983,25 @@ function renderManageLists() {
   const mr=document.getElementById('manage-rewards'); mr.innerHTML='';
   state.rewards.forEach(r=>{
     const li=document.createElement('li'); li.className='manage-item';
-    li.innerHTML=`<span>${r.emoji} ${r.name}</span><span class="badge">${r.cost}pts</span><span class="badge-green">${fmt$(r.dollars||0)}</span><button class="del-btn" onclick="deleteReward(${r.id})">🗑</button>`;
+    li.style.cssText='flex-wrap:wrap;gap:4px;';
+    li.innerHTML=`
+      <input data-field="emoji"   value="${r.emoji}"        style="width:44px;text-align:center;padding:4px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;font-size:1rem;">
+      <input data-field="name"    value="${r.name.replace(/"/g,'&quot;')}"  style="flex:1;min-width:100px;padding:4px 6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;font-size:0.85rem;">
+      <input data-field="cost"    type="number" min="1"     value="${r.cost}"    placeholder="Pts" style="width:58px;padding:4px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;font-size:0.85rem;text-align:center;">
+      <input data-field="dollars" type="number" min="0" step="0.25" value="${round2(r.dollars||0).toFixed(2)}" placeholder="$" style="width:58px;padding:4px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;font-size:0.85rem;text-align:center;">
+      <button class="del-btn" onclick="deleteReward(${r.id})">🗑</button>`;
+    // Save on blur for each field
+    ['emoji','name','cost','dollars'].forEach(field=>{
+      li.querySelector(`[data-field="${field}"]`).addEventListener('change', e=>{
+        const reward=state.rewards.find(x=>x.id===r.id); if(!reward)return;
+        if(field==='emoji')   reward.emoji   = e.target.value.trim()||'🎁';
+        if(field==='name')    reward.name    = e.target.value.trim()||reward.name;
+        if(field==='cost')    reward.cost    = Math.max(1,parseInt(e.target.value)||1);
+        if(field==='dollars') reward.dollars = round2(parseFloat(e.target.value)||0);
+        saveState(state); render(); renderManageLists();
+        showToast('Reward updated!');
+      });
+    });
     mr.appendChild(li);
   });
 }
