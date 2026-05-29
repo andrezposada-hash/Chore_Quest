@@ -547,7 +547,7 @@
       </div>
       <div class="stat-box total">
         <div class="val" id="total-pts-wesley">0</div>
-        <div class="lbl">Total Pts</div>
+        <div class="lbl">Avail Pts</div>
       </div>
       <div class="stat-box streak">
         <div class="val" id="streak-wesley">0🔥</div>
@@ -710,7 +710,7 @@
       </div>
       <div class="stat-box total">
         <div class="val" id="total-pts-wyatt">0</div>
-        <div class="lbl">Total Pts</div>
+        <div class="lbl">Avail Pts</div>
       </div>
       <div class="stat-box streak">
         <div class="val" id="streak-wyatt">0🔥</div>
@@ -2110,7 +2110,8 @@ function renderKid(kid) {
     badgeEl.innerHTML = `<span class="rank-abbr">${rank.abbr}</span><span class="rank-name">${rank.name}</span>`;
     badgeEl.title = rank.name;
   }
-  document.getElementById(`total-pts-${kid}`).textContent=totalPts;
+  // Show spendable balance (totalPts - spentPoints). Rank/XP bar still uses totalPts so rank never goes down from spending.
+  document.getElementById(`total-pts-${kid}`).textContent=getAvailablePoints(kid);
 
   if(initialized&&todayPts!==prevTodayPts[kid]){animateCounter(`today-pts-${kid}`,prevTodayPts[kid],todayPts,600);}
   else{document.getElementById(`today-pts-${kid}`).textContent=todayPts;}
