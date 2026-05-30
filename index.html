@@ -341,6 +341,22 @@
   .trophy-badge.locked { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); filter:grayscale(1); opacity:0.4; }
   .trophy-badge-name { font-size:0.62rem; color:#8892b0; text-align:center; margin-top:3px; line-height:1.2; max-width:48px; }
   .trophy-badge-wrap { display:flex; flex-direction:column; align-items:center; }
+  .trophy-badge-count { position:absolute; top:-5px; right:-5px; background:#f9d423; color:#1a1a2e; font-size:0.58rem; font-weight:900; border-radius:20px; padding:1px 5px; line-height:1.4; white-space:nowrap; }
+  /* Jackpot cards */
+  .trophy-jackpot-list { display:flex; flex-direction:column; gap:8px; margin-bottom:22px; }
+  .trophy-jackpot-card { display:flex; align-items:center; gap:12px; border-radius:12px; padding:12px 14px; }
+  .trophy-jackpot-card.paid    { background:linear-gradient(135deg,rgba(249,212,35,0.15),rgba(255,78,80,0.08)); border:1px solid rgba(249,212,35,0.4); }
+  .trophy-jackpot-card.pending { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); opacity:0.7; }
+  .trophy-jackpot-icon { font-size:2rem; flex-shrink:0; }
+  .trophy-jackpot-info { flex:1; }
+  .trophy-jackpot-month { font-size:0.88rem; font-weight:700; color:#f9d423; }
+  .trophy-jackpot-sub   { font-size:0.72rem; color:#8892b0; margin-top:2px; }
+  .trophy-jackpot-amt   { font-size:1.1rem; font-weight:900; color:#43e97b; white-space:nowrap; }
+  .trophy-jackpot-total { text-align:center; font-size:0.82rem; color:#8892b0; margin-bottom:14px; }
+  .trophy-jackpot-total strong { color:#f9d423; font-size:1rem; }
+  .trophy-progress-bar-bg  { background:rgba(255,255,255,0.08); border-radius:99px; height:8px; overflow:hidden; margin:6px 0 4px; }
+  .trophy-progress-bar-fill { height:100%; border-radius:99px; background:linear-gradient(90deg,#43e97b,#38f9d7); transition:width 0.4s; }
+  .trophy-progress-label { font-size:0.72rem; color:#8892b0; }
   .kid-name-tap { cursor:pointer; user-select:none; }
   .kid-name-tap:hover { opacity:0.8; }
 
@@ -1473,6 +1489,7 @@ function getState(rawData) {
   // Migrate redeemed rewards history — add per-kid array if missing
   ['wesley','wyatt'].forEach(kid => {
     if (!s.kids[kid].redeemedRewards) s.kids[kid].redeemedRewards = [];
+    if (!s.kids[kid].badgeCounts)     s.kids[kid].badgeCounts     = {};
   });
 
   // Migrate completions — normalize legacy formats to the full approval record shape
@@ -1801,13 +1818,15 @@ function checkAchievements(kid) {
   const effectiveStreak = (kd.streak || 0) + (todayMet ? 1 : 0);
   const hour = new Date().getHours();
 
+  if (!kd.badgeCounts) kd.badgeCounts = {};
   const newEarned = [];
   function consider(id, condition) {
     if (condition) {
       newEarned.push(id);
       if (!prevEarned.has(id)) {
-        // First time earning — record date and show toast
+        // Newly earned (first time or re-earned after losing it)
         kd.badgeDates[id] = today;
+        kd.badgeCounts[id] = (kd.badgeCounts[id] || 0) + 1;
         const a = ACHIEVEMENTS.find(x => x.id === id);
         if (a) setTimeout(() => showToast(`${a.emoji} Badge Unlocked: ${a.name}!`), 1500);
       }
@@ -3471,16 +3490,74 @@ function openTrophyRoom(kid) {
     });
   }
 
-  // Badges grid
+  // ── Jackpot shelf ─────────────────────────────────────────────────────
+  const jpSec   = document.getElementById('trophy-jackpot-section');
+  jpSec.innerHTML = '';
+  const myJackpots = (state.jackpots || []).filter(j => j.kidId === kid);
+  const paidJPs    = myJackpots.filter(j => j.paid);
+  const pendingJPs = myJackpots.filter(j => !j.paid);
+  const lifetimeJP = paidJPs.reduce((s, j) => s + (j.amount || 0), 0);
+
+  // Lifetime total line
+  const totalLine = document.createElement('div');
+  totalLine.className = 'trophy-jackpot-total';
+  totalLine.innerHTML = lifetimeJP > 0
+    ? `🎰 Lifetime jackpots: <strong>${fmt$(lifetimeJP)}</strong>`
+    : `<span style="color:#8892b0">No jackpots earned yet — hit 90%+ every day this month!</span>`;
+  jpSec.appendChild(totalLine);
+
+  // Jackpot cards
+  const jpList = document.createElement('div');
+  jpList.className = 'trophy-jackpot-list';
+  [...pendingJPs, ...paidJPs.reverse()].forEach(j => {
+    const monthLabel = new Date(j.month + '-15').toLocaleDateString('en-US', {month:'long', year:'numeric'});
+    const card = document.createElement('div');
+    card.className = 'trophy-jackpot-card ' + (j.paid ? 'paid' : 'pending');
+    card.innerHTML = `
+      <div class="trophy-jackpot-icon">${j.paid ? '🎰' : '⏳'}</div>
+      <div class="trophy-jackpot-info">
+        <div class="trophy-jackpot-month">${monthLabel}</div>
+        <div class="trophy-jackpot-sub">${j.paid ? 'Paid out' : 'Pending parent approval'}</div>
+      </div>
+      <div class="trophy-jackpot-amt">${fmt$(j.amount || 50)}</div>`;
+    jpList.appendChild(card);
+  });
+  if (!myJackpots.length) {
+    jpList.innerHTML = '<div class="trophy-empty" style="margin:0 0 8px">Keep your streak going — jackpots come at month end! 💪</div>';
+  }
+  jpSec.appendChild(jpList);
+
+  // Current month progress toward next jackpot
+  const curMonth  = monthStr();
+  const jpDays    = getQualifyingDays(kid, curMonth);
+  const jpPct     = jpDays.total > 0 ? Math.round((jpDays.qualifying / jpDays.total) * 100) : 0;
+  const already   = myJackpots.some(j => j.month === curMonth);
+  if (!already) {
+    const prog = document.createElement('div');
+    prog.innerHTML = `
+      <div style="font-size:0.78rem;font-weight:700;color:#8892b0;margin-bottom:4px">This month's jackpot progress</div>
+      <div class="trophy-progress-bar-bg">
+        <div class="trophy-progress-bar-fill" style="width:${Math.min(100,jpPct)}%"></div>
+      </div>
+      <div class="trophy-progress-label">${jpDays.qualifying} / ${jpDays.total} days at 90%+ &nbsp;·&nbsp; ${jpPct}% there</div>`;
+    jpSec.appendChild(prog);
+  }
+
+  // ── Badges grid ────────────────────────────────────────────────────────
   const grid = document.getElementById('trophy-badge-grid');
   grid.innerHTML = '';
+  const badgeCounts = kd.badgeCounts || {};
   ACHIEVEMENTS.forEach(a => {
     const isEarned = earned.includes(a.id);
+    const count    = badgeCounts[a.id] || 0;
     const wrap = document.createElement('div');
     wrap.className = 'trophy-badge-wrap';
-    wrap.title = `${a.name}: ${a.desc}`;
+    wrap.title = `${a.name}: ${a.desc}${count > 1 ? ` (earned ${count}×)` : ''}`;
     wrap.innerHTML = `
-      <div class="trophy-badge ${isEarned ? 'earned' : 'locked'}">${a.emoji}</div>
+      <div class="trophy-badge ${isEarned ? 'earned' : 'locked'}" style="position:relative">
+        ${a.emoji}
+        ${count > 1 ? `<div class="trophy-badge-count">×${count}</div>` : ''}
+      </div>
       <div class="trophy-badge-name">${a.name}</div>`;
     grid.appendChild(wrap);
   });
@@ -3732,6 +3809,8 @@ firebase.database().ref('.info/connected').on('value', snap => {
     </div>
     <div class="trophy-shelf-label">🎁 Redeemed Rewards</div>
     <div class="trophy-reward-list" id="trophy-reward-list"></div>
+    <div class="trophy-shelf-label">🎰 Jackpots</div>
+    <div id="trophy-jackpot-section"></div>
     <div class="trophy-shelf-label">🎖️ Badges</div>
     <div class="trophy-badge-grid" id="trophy-badge-grid"></div>
   </div>
