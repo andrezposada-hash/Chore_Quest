@@ -3384,7 +3384,29 @@ function deleteReward(id){
 // ══════════════════════════════════════════
 //  TROPHY ROOM
 // ══════════════════════════════════════════
+let trophyRoomKid = null; // track which kid's room is open
+
+function deleteTrophyReward(idx) {
+  const kid = trophyRoomKid;
+  if (!kid) return;
+  const redeemed = state.kids[kid].redeemedRewards || [];
+  const r = redeemed[idx];
+  if (!r) return;
+  // Restore spent points or dollar balance
+  if (r.paymentType === 'dollars') {
+    state.kids[kid].availableBalance = round2((state.kids[kid].availableBalance || 0) + (r.rewardDollars || 0));
+  } else {
+    state.kids[kid].spentPoints = Math.max(0, (state.kids[kid].spentPoints || 0) - (r.rewardCost || 0));
+  }
+  state.kids[kid].redeemedRewards.splice(idx, 1);
+  saveState(state);
+  render();
+  openTrophyRoom(kid); // refresh the panel
+  showToast('Reward entry removed.');
+}
+
 function openTrophyRoom(kid) {
+  trophyRoomKid  = kid;
   const kd       = state.kids[kid];
   const kidName  = kid === 'wesley' ? 'Wesley' : 'Wyatt';
   const redeemed = kd.redeemedRewards || [];
@@ -3415,7 +3437,7 @@ function openTrophyRoom(kid) {
   if (!redeemed.length) {
     list.innerHTML = '<div class="trophy-empty">No rewards redeemed yet — keep earning! 💪</div>';
   } else {
-    redeemed.forEach(r => {
+    redeemed.forEach((r, idx) => {
       const date    = new Date(r.redeemedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
       const costStr = r.paymentType === 'dollars' ? fmt$(r.rewardDollars||0) : `${r.rewardCost} pts`;
       const div = document.createElement('div');
@@ -3426,7 +3448,8 @@ function openTrophyRoom(kid) {
           <div class="trophy-reward-name">${r.rewardName}</div>
           <div class="trophy-reward-meta">${date}</div>
         </div>
-        <div class="trophy-reward-cost">${costStr}</div>`;
+        <div class="trophy-reward-cost">${costStr}</div>
+        <button class="del-btn" style="margin-left:6px;flex-shrink:0" onclick="deleteTrophyReward(${idx})">🗑</button>`;
       list.appendChild(div);
     });
   }
