@@ -92,7 +92,41 @@
 
   /* ── XP Bar ── */
   .xp-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: #8892b0; margin-bottom: 4px; }
-  .xp-bar-bg { height: 8px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; margin-bottom: 10px; }
+  .xp-bar-bg { height: 8px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; margin-bottom: 10px; cursor: pointer; }
+  .level-badge { cursor: pointer; }
+
+  /* ── Rank tooltip popover ── */
+  #rank-tooltip {
+    position: fixed; display: none; z-index: 500;
+    width: 248px;
+    background: linear-gradient(160deg, #1a1a2e, #16213e);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 14px; padding: 8px 0;
+    box-shadow: 0 10px 36px rgba(0,0,0,0.65);
+    max-height: 58vh; overflow-y: auto;
+  }
+  .rank-tip-header {
+    padding: 6px 14px 8px;
+    font-size: 0.68rem; color: #8892b0;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    margin-bottom: 4px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .rank-tip-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; padding: 5px 14px;
+    font-size: 0.78rem; color: rgba(255,255,255,0.35);
+  }
+  .rank-tip-row.unlocked { color: rgba(255,255,255,0.65); }
+  .rank-tip-row.current {
+    background: rgba(249,212,35,0.13);
+    border-left: 3px solid #f9d423;
+    color: #fff; font-weight: 800;
+    padding-left: 11px;
+  }
+  .rank-tip-name { flex: 1; }
+  .rank-tip-xp { font-size: 0.68rem; color: #8892b0; white-space: nowrap; }
+  .rank-tip-row.current .rank-tip-xp { color: #f9d423; }
   .xp-bar-fill { height: 100%; border-radius: 99px; transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1); }
   .xp-bar-fill.wesley { background: linear-gradient(90deg, #667eea, #f9d423); }
   .xp-bar-fill.wyatt  { background: linear-gradient(90deg, #f093fb, #f9d423); }
@@ -598,7 +632,7 @@
       <input type="file" id="avatar-input-wesley" accept="image/*" style="display:none" onchange="uploadAvatar('wesley',this)">
       <div class="kid-info">
         <h2 class="kid-name-tap" onclick="openTrophyRoom('wesley')" title="Tap to open Trophy Room">Wesley 🏆</h2>
-        <div class="level-badge" id="level-wesley">⭐ Beginner</div>
+        <div class="level-badge" id="level-wesley" onclick="openRankTooltip('wesley',this,event)">⭐ Beginner</div>
       </div>
     </div>
     <div class="points-row">
@@ -648,7 +682,7 @@
       <span id="xp-label-wesley">XP Progress</span>
       <span id="xp-pct-wesley">0%</span>
     </div>
-    <div class="xp-bar-bg">
+    <div class="xp-bar-bg" onclick="openRankTooltip('wesley',this,event)">
       <div class="xp-bar-fill wesley" id="xp-bar-wesley" style="width:0%"></div>
     </div>
     <div class="achievements-row" id="achievements-wesley"></div>
@@ -771,7 +805,7 @@
       <input type="file" id="avatar-input-wyatt" accept="image/*" style="display:none" onchange="uploadAvatar('wyatt',this)">
       <div class="kid-info">
         <h2 class="kid-name-tap" onclick="openTrophyRoom('wyatt')" title="Tap to open Trophy Room">Wyatt 🏆</h2>
-        <div class="level-badge" id="level-wyatt">⭐ Beginner</div>
+        <div class="level-badge" id="level-wyatt" onclick="openRankTooltip('wyatt',this,event)">⭐ Beginner</div>
       </div>
     </div>
     <div class="points-row">
@@ -821,7 +855,7 @@
       <span id="xp-label-wyatt">XP Progress</span>
       <span id="xp-pct-wyatt">0%</span>
     </div>
-    <div class="xp-bar-bg">
+    <div class="xp-bar-bg" onclick="openRankTooltip('wyatt',this,event)">
       <div class="xp-bar-fill wyatt" id="xp-bar-wyatt" style="width:0%"></div>
     </div>
     <div class="achievements-row" id="achievements-wyatt"></div>
@@ -3826,6 +3860,58 @@ function showToast(msg){
 }
 
 // ══════════════════════════════════════════
+//  RANK TOOLTIP
+// ══════════════════════════════════════════
+var _rankTipKid = null;
+function openRankTooltip(kid, el, evt) {
+  if (evt) evt.stopPropagation();
+  var tip = document.getElementById('rank-tooltip');
+  if (_rankTipKid === kid && tip.style.display !== 'none') {
+    closeRankTooltip(); return;
+  }
+  _rankTipKid = kid;
+  var totalPts = (state && state.kids && state.kids[kid]) ? (state.kids[kid].totalPoints || 0) : 0;
+  var info = getRankInfo(totalPts);
+  var curIdx = info.curIdx;
+  var effectivePts = info.effectivePts;
+  var next = info.next;
+  var progressLine = '';
+  if (next) {
+    var range = next.min - info.cur.min;
+    var prog = effectivePts - info.cur.min;
+    progressLine = prog + ' / ' + range + ' XP to ' + next.abbr;
+  } else {
+    progressLine = 'MAX RANK';
+  }
+  var rows = LEVELS.map(function(lvl, i) {
+    var cls = i === curIdx ? 'rank-tip-row current' : effectivePts >= lvl.min ? 'rank-tip-row unlocked' : 'rank-tip-row';
+    var marker = i === curIdx ? ' &#9654;' : '';
+    return '<div class="' + cls + '"><span class="rank-tip-name">' + lvl.abbr + ' &mdash; ' + lvl.name + marker + '</span><span class="rank-tip-xp">' + lvl.min.toLocaleString() + ' XP</span></div>';
+  }).join('');
+  var kidName = kid === 'wesley' ? 'Wesley' : 'Wyatt';
+  tip.innerHTML = '<div class="rank-tip-header">' + kidName + ' &middot; ' + totalPts.toLocaleString() + ' XP &middot; ' + progressLine + '</div>' + rows;
+  tip.style.display = 'block';
+  var tw = 248;
+  var rect = el.getBoundingClientRect();
+  var left = rect.left + rect.width / 2 - tw / 2;
+  if (left < 8) left = 8;
+  if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+  tip.style.left = left + 'px';
+  tip.style.width = tw + 'px';
+  var th = tip.offsetHeight;
+  var top = rect.top - th - 10;
+  if (top < 8) top = rect.bottom + 10;
+  tip.style.top = top + 'px';
+  var curRow = tip.querySelector('.current');
+  if (curRow) curRow.scrollIntoView({ block: 'nearest' });
+}
+function closeRankTooltip() {
+  var tip = document.getElementById('rank-tooltip');
+  if (tip) tip.style.display = 'none';
+  _rankTipKid = null;
+}
+
+// ══════════════════════════════════════════
 //  EVENT LISTENERS
 // ══════════════════════════════════════════
 document.getElementById('parent-btn').addEventListener('click',openParentPanel);
@@ -3836,6 +3922,10 @@ document.getElementById('pin-input').addEventListener('keydown',e=>{if(e.key==='
   });
 });
 document.getElementById('levelup-overlay').addEventListener('click',function(){this.style.display='none';});
+document.addEventListener('click', function(e) {
+  var tip = document.getElementById('rank-tooltip');
+  if (tip && tip.style.display !== 'none' && !tip.contains(e.target)) closeRankTooltip();
+});
 
 // ══════════════════════════════════════════
 //  INIT — Firebase real-time sync
@@ -3934,5 +4024,6 @@ firebase.database().ref('.info/connected').on('value', snap => {
   </div>
   <div class="tip-status" id="tip-status"></div>
 </div>
+<div id="rank-tooltip"></div>
 </body>
 </html>
