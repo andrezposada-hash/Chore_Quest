@@ -98,20 +98,34 @@
   /* ── Rank tooltip popover ── */
   #rank-tooltip {
     position: fixed; display: none; z-index: 500;
-    width: 248px;
+    width: 290px;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
     background: linear-gradient(160deg, #1a1a2e, #16213e);
     border: 1px solid rgba(255,255,255,0.18);
-    border-radius: 14px; padding: 8px 0;
-    box-shadow: 0 10px 36px rgba(0,0,0,0.65);
-    max-height: 58vh; overflow-y: auto;
+    border-radius: 16px; padding: 0 0 8px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.75);
+    max-height: 70vh; overflow-y: auto;
+  }
+  .rank-tip-titlebar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    position: sticky; top: 0;
+    background: linear-gradient(160deg, #1a1a2e, #16213e);
+    border-radius: 16px 16px 0 0;
   }
   .rank-tip-header {
-    padding: 6px 14px 8px;
-    font-size: 0.68rem; color: #8892b0;
-    border-bottom: 1px solid rgba(255,255,255,0.07);
-    margin-bottom: 4px;
+    font-size: 0.72rem; color: #8892b0;
     text-transform: uppercase; letter-spacing: 0.05em;
+    line-height: 1.4;
   }
+  .rank-tip-close {
+    background: none; border: none; color: #8892b0;
+    font-size: 1.1rem; cursor: pointer; line-height: 1;
+    padding: 2px 4px; flex-shrink: 0;
+  }
+  .rank-tip-close:hover { color: #fff; }
   .rank-tip-row {
     display: flex; justify-content: space-between; align-items: center;
     gap: 8px; padding: 5px 14px;
@@ -3889,21 +3903,14 @@ function openRankTooltip(kid, el, evt) {
     return '<div class="' + cls + '"><span class="rank-tip-name">' + lvl.abbr + ' &mdash; ' + lvl.name + marker + '</span><span class="rank-tip-xp">' + lvl.min.toLocaleString() + ' XP</span></div>';
   }).join('');
   var kidName = kid === 'wesley' ? 'Wesley' : 'Wyatt';
-  tip.innerHTML = '<div class="rank-tip-header">' + kidName + ' &middot; ' + totalPts.toLocaleString() + ' XP &middot; ' + progressLine + '</div>' + rows;
+  var header = '<div class="rank-tip-titlebar">'
+    + '<div class="rank-tip-header">' + kidName + ' &middot; ' + totalPts.toLocaleString() + ' XP<br>' + progressLine + '</div>'
+    + '<button class="rank-tip-close" onclick="closeRankTooltip()">&#x2715;</button>'
+    + '</div>';
+  tip.innerHTML = header + rows;
   tip.style.display = 'block';
-  var tw = 248;
-  var rect = el.getBoundingClientRect();
-  var left = rect.left + rect.width / 2 - tw / 2;
-  if (left < 8) left = 8;
-  if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
-  tip.style.left = left + 'px';
-  tip.style.width = tw + 'px';
-  var th = tip.offsetHeight;
-  var top = rect.top - th - 10;
-  if (top < 8) top = rect.bottom + 10;
-  tip.style.top = top + 'px';
   var curRow = tip.querySelector('.current');
-  if (curRow) curRow.scrollIntoView({ block: 'nearest' });
+  if (curRow) curRow.scrollIntoView({ block: 'center' });
 }
 function closeRankTooltip() {
   var tip = document.getElementById('rank-tooltip');
