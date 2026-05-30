@@ -2887,9 +2887,27 @@ function renderMoneyDashboard() {
   recent.forEach(p=>{
     const li=document.createElement('li'); li.className='manage-item';
     const typeTag = p.type==='bonus' ? `<span class="badge" style="color:#f9d423;border-color:rgba(249,212,35,0.3)">🎁 Bonus</span>` : `<span class="badge">💵 Chore</span>`;
-    li.innerHTML=`<span>${p.date}</span><span>${p.kidId==='wesley'?'🧑 Wesley':'👦 Wyatt'}</span>${typeTag}<span class="badge-green">${fmt$(p.amount)}</span>`;
+    li.innerHTML=`<span>${p.date}</span><span>${p.kidId==='wesley'?'🧑 Wesley':'👦 Wyatt'}</span>${typeTag}<span class="badge-green">${fmt$(p.amount)}</span><button class="del-btn" style="width:auto;padding:2px 8px;font-size:0.7rem;margin-left:6px" onclick="deletePayout('${p.id}')">✕</button>`;
     histList.appendChild(li);
   });
+}
+
+function deletePayout(id) {
+  const idx = (state.payouts||[]).findIndex(p => p.id === id);
+  if (idx === -1) return;
+  const p = state.payouts[idx];
+  const kidName = p.kidId === 'wesley' ? 'Wesley' : 'Wyatt';
+  if (!confirm('Remove the ' + fmt$(p.amount) + ' payout for ' + kidName + '? This will add it back to their balance.')) return;
+  // Reverse: add amount back to the correct wallet
+  if (p.type === 'bonus') {
+    state.kids[p.kidId].bonusBalance = round2((state.kids[p.kidId].bonusBalance || 0) + p.amount);
+  } else {
+    state.kids[p.kidId].availableBalance = round2((state.kids[p.kidId].availableBalance || 0) + p.amount);
+  }
+  state.payouts.splice(idx, 1);
+  saveState(state);
+  renderMoneyDashboard(); render();
+  showToast('Payout removed — balance restored.');
 }
 
 function populateAdjFields() {
