@@ -3873,7 +3873,7 @@ function openRankSheet(kid) {
   const avatarData = state.kids[kid].avatarDataUrl;
   avatarEl.innerHTML = avatarData ? `<img src="${avatarData}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : kidEmoji;
 
-  document.getElementById('rank-sheet-title').textContent = kidName + ''s Rank Ladder';
+  document.getElementById('rank-sheet-title').textContent = kidName + "'s Rank Ladder";
   const presLabel = prestige > 0 ? ` · 🦅 Prestige ${toRoman(prestige)}` : '';
   document.getElementById('rank-sheet-sub').textContent = `${totalPts.toLocaleString()} total XP${presLabel}`;
 
