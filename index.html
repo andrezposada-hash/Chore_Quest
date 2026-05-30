@@ -304,6 +304,34 @@
   .redeem-btn:disabled { opacity: 0.3; cursor: not-allowed; }
   .redeem-btn:not(:disabled):hover { opacity: 0.85; }
 
+  /* ── Trophy Room ── */
+  .trophy-room-header { display:flex; align-items:center; gap:14px; margin-bottom:20px; }
+  .trophy-room-avatar { width:60px; height:60px; border-radius:50%; font-size:2rem; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.08); flex-shrink:0; overflow:hidden; }
+  .trophy-room-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+  .trophy-room-title { font-size:1.3rem; font-weight:800; }
+  .trophy-room-subtitle { font-size:0.8rem; color:#8892b0; margin-top:2px; }
+  .trophy-stats-row { display:flex; gap:10px; margin-bottom:22px; flex-wrap:wrap; }
+  .trophy-stat { flex:1; min-width:80px; background:rgba(255,255,255,0.06); border-radius:12px; padding:10px; text-align:center; }
+  .trophy-stat .t-val { font-size:1.2rem; font-weight:800; color:#43e97b; }
+  .trophy-stat .t-lbl { font-size:0.7rem; color:#8892b0; margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }
+  .trophy-shelf-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:1px; color:#8892b0; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .trophy-reward-list { display:flex; flex-direction:column; gap:8px; margin-bottom:22px; }
+  .trophy-reward-item { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.05); border-radius:12px; padding:10px 14px; }
+  .trophy-reward-emoji { font-size:1.8rem; flex-shrink:0; }
+  .trophy-reward-info { flex:1; }
+  .trophy-reward-name { font-size:0.9rem; font-weight:700; }
+  .trophy-reward-meta { font-size:0.75rem; color:#8892b0; margin-top:2px; }
+  .trophy-reward-cost { font-size:0.8rem; font-weight:700; color:#43e97b; white-space:nowrap; }
+  .trophy-empty { text-align:center; color:#8892b0; font-size:0.85rem; padding:20px; }
+  .trophy-badge-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+  .trophy-badge { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; position:relative; cursor:pointer; }
+  .trophy-badge.earned { background:rgba(67,233,122,0.15); border:1px solid rgba(67,233,122,0.3); }
+  .trophy-badge.locked { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); filter:grayscale(1); opacity:0.4; }
+  .trophy-badge-name { font-size:0.62rem; color:#8892b0; text-align:center; margin-top:3px; line-height:1.2; max-width:48px; }
+  .trophy-badge-wrap { display:flex; flex-direction:column; align-items:center; }
+  .kid-name-tap { cursor:pointer; user-select:none; }
+  .kid-name-tap:hover { opacity:0.8; }
+
   /* ── Modal / Overlay ── */
   .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
   .overlay.open { display: flex; }
@@ -536,7 +564,7 @@
       <div class="kid-avatar wesley" id="avatar-wesley" onclick="document.getElementById('avatar-input-wesley').click()" title="Tap to change photo">🧑</div>
       <input type="file" id="avatar-input-wesley" accept="image/*" style="display:none" onchange="uploadAvatar('wesley',this)">
       <div class="kid-info">
-        <h2>Wesley</h2>
+        <h2 class="kid-name-tap" onclick="openTrophyRoom('wesley')" title="Tap to open Trophy Room">Wesley 🏆</h2>
         <div class="level-badge" id="level-wesley">⭐ Beginner</div>
       </div>
     </div>
@@ -699,7 +727,7 @@
       <div class="kid-avatar wyatt" id="avatar-wyatt" onclick="document.getElementById('avatar-input-wyatt').click()" title="Tap to change photo">👦</div>
       <input type="file" id="avatar-input-wyatt" accept="image/*" style="display:none" onchange="uploadAvatar('wyatt',this)">
       <div class="kid-info">
-        <h2>Wyatt</h2>
+        <h2 class="kid-name-tap" onclick="openTrophyRoom('wyatt')" title="Tap to open Trophy Room">Wyatt 🏆</h2>
         <div class="level-badge" id="level-wyatt">⭐ Beginner</div>
       </div>
     </div>
@@ -1424,6 +1452,11 @@ function getState(rawData) {
   s.pendingRedemptions = s.pendingRedemptions.map(p => ({
     paymentType:'points', rewardDollars:0, ...p
   }));
+
+  // Migrate redeemed rewards history — add per-kid array if missing
+  ['wesley','wyatt'].forEach(kid => {
+    if (!s.kids[kid].redeemedRewards) s.kids[kid].redeemedRewards = [];
+  });
 
   // Migrate completions — normalize legacy formats to the full approval record shape
   // Old: true  (boolean)           → treat as approved, pts unknown
@@ -3238,6 +3271,73 @@ function deleteReward(id){
 // ══════════════════════════════════════════
 //  REDEMPTION
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  TROPHY ROOM
+// ══════════════════════════════════════════
+function openTrophyRoom(kid) {
+  const kd       = state.kids[kid];
+  const kidName  = kid === 'wesley' ? 'Wesley' : 'Wyatt';
+  const redeemed = kd.redeemedRewards || [];
+  const earned   = kd.achievements || [];
+
+  // Header avatar (reuse same logic as renderAvatar)
+  const avatarEl = document.getElementById('trophy-avatar');
+  const avatarSrc = kd.avatarDataUrl;
+  if (avatarSrc) {
+    avatarEl.innerHTML = `<img src="${avatarSrc}" alt="${kidName}">`;
+  } else {
+    avatarEl.textContent = kid === 'wesley' ? '🧑' : '👦';
+    avatarEl.style.fontSize = '2rem';
+  }
+  document.getElementById('trophy-title').textContent = kidName;
+
+  // Stats
+  const totalPtsSpent  = redeemed.filter(r=>r.paymentType!=='dollars').reduce((s,r)=>s+r.rewardCost,0);
+  const totalDollarVal = redeemed.reduce((s,r)=>s+(r.rewardDollars||0),0);
+  document.getElementById('trophy-stat-count').textContent  = redeemed.length;
+  document.getElementById('trophy-stat-pts').textContent    = totalPtsSpent;
+  document.getElementById('trophy-stat-val').textContent    = fmt$(totalDollarVal);
+  document.getElementById('trophy-stat-badges').textContent = earned.length;
+
+  // Redeemed rewards list
+  const list = document.getElementById('trophy-reward-list');
+  list.innerHTML = '';
+  if (!redeemed.length) {
+    list.innerHTML = '<div class="trophy-empty">No rewards redeemed yet — keep earning! 💪</div>';
+  } else {
+    redeemed.forEach(r => {
+      const date    = new Date(r.redeemedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      const costStr = r.paymentType === 'dollars' ? fmt$(r.rewardDollars||0) : `${r.rewardCost} pts`;
+      const div = document.createElement('div');
+      div.className = 'trophy-reward-item';
+      div.innerHTML = `
+        <div class="trophy-reward-emoji">${r.rewardEmoji}</div>
+        <div class="trophy-reward-info">
+          <div class="trophy-reward-name">${r.rewardName}</div>
+          <div class="trophy-reward-meta">${date}</div>
+        </div>
+        <div class="trophy-reward-cost">${costStr}</div>`;
+      list.appendChild(div);
+    });
+  }
+
+  // Badges grid
+  const grid = document.getElementById('trophy-badge-grid');
+  grid.innerHTML = '';
+  ACHIEVEMENTS.forEach(a => {
+    const isEarned = earned.includes(a.id);
+    const wrap = document.createElement('div');
+    wrap.className = 'trophy-badge-wrap';
+    wrap.title = `${a.name}: ${a.desc}`;
+    wrap.innerHTML = `
+      <div class="trophy-badge ${isEarned ? 'earned' : 'locked'}">${a.emoji}</div>
+      <div class="trophy-badge-name">${a.name}</div>`;
+    grid.appendChild(wrap);
+  });
+
+  openOverlay('trophy-room-overlay');
+}
+
 let pendingRedeemId=null, pendingRedeemKid='wesley', pendingPayMethod='points';
 
 function openRedeem(rewardId){
@@ -3294,6 +3394,16 @@ function approveRedemption(id){
   }else{
     state.kids[p.kidId].spentPoints=(state.kids[p.kidId].spentPoints||0)+p.rewardCost;
   }
+  // Log to Trophy Room history
+  if(!state.kids[p.kidId].redeemedRewards) state.kids[p.kidId].redeemedRewards=[];
+  state.kids[p.kidId].redeemedRewards.unshift({
+    rewardEmoji:  p.rewardEmoji,
+    rewardName:   p.rewardName,
+    rewardCost:   p.rewardCost,
+    rewardDollars:p.rewardDollars||0,
+    paymentType:  p.paymentType||'points',
+    redeemedAt:   Date.now(),
+  });
   state.pendingRedemptions=state.pendingRedemptions.filter(x=>x.id!==id);
   saveState(state); renderManageLists(); render();
   showToast(`${p.rewardEmoji} Approved! Enjoy! 🎉`);
@@ -3452,6 +3562,30 @@ firebase.database().ref('.info/connected').on('value', snap => {
   _setSyncStatus(snap.val() ? '☁️ Synced' : '⚠️ Offline', snap.val() ? '#43e97b' : '#f9d423');
 });
 </script>
+
+<!-- ── Trophy Room Modal ── -->
+<div class="overlay" id="trophy-room-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeOverlay('trophy-room-overlay')">✕</button>
+    <div class="trophy-room-header">
+      <div class="trophy-room-avatar" id="trophy-avatar"></div>
+      <div>
+        <div class="trophy-room-title" id="trophy-title"></div>
+        <div class="trophy-room-subtitle">🏆 Trophy Room</div>
+      </div>
+    </div>
+    <div class="trophy-stats-row">
+      <div class="trophy-stat"><div class="t-val" id="trophy-stat-count">0</div><div class="t-lbl">Rewards</div></div>
+      <div class="trophy-stat"><div class="t-val" id="trophy-stat-pts">0</div><div class="t-lbl">Pts Spent</div></div>
+      <div class="trophy-stat"><div class="t-val" id="trophy-stat-val">$0</div><div class="t-lbl">Total Value</div></div>
+      <div class="trophy-stat"><div class="t-val" id="trophy-stat-badges">0</div><div class="t-lbl">Badges</div></div>
+    </div>
+    <div class="trophy-shelf-label">🎁 Redeemed Rewards</div>
+    <div class="trophy-reward-list" id="trophy-reward-list"></div>
+    <div class="trophy-shelf-label">🎖️ Badges</div>
+    <div class="trophy-badge-grid" id="trophy-badge-grid"></div>
+  </div>
+</div>
 
 <!-- Shared badge tooltip -->
 <div id="badge-tooltip">
