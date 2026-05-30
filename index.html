@@ -73,6 +73,7 @@
   .stat-box.total .val  { color: #a8edea; }
   .stat-box.streak .val { color: #ff6b6b; }
   .stat-box.money .val  { color: #43e97b; font-size: 1rem; }
+  .stat-box.bonus .val  { color: #f9d423; font-size: 1rem; }
 
   /* ── Monthly Cap Bar ── */
   .money-cap-section { margin-bottom: 10px; }
@@ -491,6 +492,7 @@
     .stat-box { padding: 7px 4px; }
     .stat-box .val { font-size: 1rem; }
     .stat-box.money .val { font-size: 0.85rem; }
+    .stat-box.bonus .val { font-size: 0.85rem; }
     .stat-box .lbl { font-size: 0.52rem; letter-spacing: 0; }
 
     /* Chore list — bigger tap targets */
@@ -613,6 +615,10 @@
         <div class="val" id="month-earned-wesley">$0.00</div>
         <div class="lbl">This Month</div>
       </div>
+      <div class="stat-box bonus">
+        <div class="val" id="bonus-stat-wesley">$0.00</div>
+        <div class="lbl">🎁 Bonus</div>
+      </div>
     </div>
     <div class="money-cap-section">
       <div class="money-cap-label-row">
@@ -628,7 +634,6 @@
         <span id="point-value-wesley">$0.00/pt</span>
       </div>
       <div class="jackpot-hint" id="jackpot-hint-wesley">Jackpot: 0% this month</div>
-      <div id="bonus-wallet-wesley" style="display:none;margin-top:6px;padding:6px 10px;background:linear-gradient(135deg,rgba(249,212,35,0.1),rgba(255,78,80,0.07));border:1px solid rgba(249,212,35,0.3);border-radius:8px;font-size:0.78rem;color:#f9d423;font-weight:700">🎁 Bonus Wallet: <span id="bonus-amt-wesley">$0.00</span></div>
     </div>
     <div class="xp-label">
       <span id="xp-label-wesley">XP Progress</span>
@@ -777,6 +782,10 @@
         <div class="val" id="month-earned-wyatt">$0.00</div>
         <div class="lbl">This Month</div>
       </div>
+      <div class="stat-box bonus">
+        <div class="val" id="bonus-stat-wyatt">$0.00</div>
+        <div class="lbl">🎁 Bonus</div>
+      </div>
     </div>
     <div class="money-cap-section">
       <div class="money-cap-label-row">
@@ -792,7 +801,6 @@
         <span id="point-value-wyatt">$0.00/pt</span>
       </div>
       <div class="jackpot-hint" id="jackpot-hint-wyatt">Jackpot: 0% this month</div>
-      <div id="bonus-wallet-wyatt" style="display:none;margin-top:6px;padding:6px 10px;background:linear-gradient(135deg,rgba(249,212,35,0.1),rgba(255,78,80,0.07));border:1px solid rgba(249,212,35,0.3);border-radius:8px;font-size:0.78rem;color:#f9d423;font-weight:700">🎁 Bonus Wallet: <span id="bonus-amt-wyatt">$0.00</span></div>
     </div>
     <div class="xp-label">
       <span id="xp-label-wyatt">XP Progress</span>
@@ -2314,14 +2322,9 @@ function renderKid(kid) {
   capBar.classList.toggle('maxed',isMaxed);
   document.getElementById(`maxed-badge-${kid}`).style.display=isMaxed?'inline':'none';
 
-  // ── Bonus wallet ──
-  const bonusAmt = getAvailableBonusBalance(kid);
-  const bonusEl  = document.getElementById(`bonus-wallet-${kid}`);
-  if (bonusEl) {
-    bonusEl.style.display = bonusAmt > 0 ? 'block' : 'none';
-    const bonusAmtEl = document.getElementById(`bonus-amt-${kid}`);
-    if (bonusAmtEl) bonusAmtEl.textContent = fmt$(bonusAmt);
-  }
+  // ── Bonus stat box ──
+  const bonusStatEl = document.getElementById(`bonus-stat-${kid}`);
+  if (bonusStatEl) bonusStatEl.textContent = fmt$(getAvailableBonusBalance(kid));
 
   // ── Piggy bank fill ──
   updatePiggyBank(kid, monthlyEarned);
