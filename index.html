@@ -333,15 +333,6 @@
   .jackpot-pct-label.on-track { color: #43e97b; font-weight: 600; }
   .jackpot-pct-label.perfect  { color: #f9d423; font-weight: 700; }
 
-  /* ── Family Challenge ── */
-  .family-challenge { max-width: 900px; margin: 0 auto 20px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 18px 22px; }
-  .fc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .fc-title { font-size: 1rem; font-weight: 700; color: #f9d423; }
-  .fc-reward-label { font-size: 0.82rem; color: #aab4d4; }
-  .fc-progress-label { font-size: 0.8rem; color: #8892b0; margin-bottom: 6px; }
-  .fc-bar-bg { height: 10px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
-  .fc-bar-fill { height: 100%; background: linear-gradient(90deg, #43e97b, #38f9d7); border-radius: 99px; transition: width 0.6s ease; }
-  .fc-completed { text-align: center; color: #43e97b; font-weight: 700; font-size: 0.95rem; margin-top: 10px; }
 
   /* ── Rewards Section ── */
   .rewards-section { max-width: 900px; margin: 0 auto 28px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 22px; }
@@ -969,18 +960,6 @@
   </div>
 </div>
 
-<!-- ── Family Challenge ── -->
-<div class="family-challenge" id="family-banner">
-  <div class="fc-header">
-    <span class="fc-title">🏠 Family Challenge</span>
-    <span id="fc-reward-label" class="fc-reward-label"></span>
-  </div>
-  <div class="fc-progress-label">
-    <span id="fc-pts">0</span> / <span id="fc-target">200</span> pts this week — combined
-  </div>
-  <div class="fc-bar-bg"><div class="fc-bar-fill" id="fc-bar" style="width:0%"></div></div>
-  <div class="fc-completed" id="fc-completed" style="display:none">🎉 Challenge Complete! Amazing teamwork!</div>
-</div>
 
 <!-- ── Reward Shop ── -->
 <div class="rewards-section">
@@ -1127,18 +1106,7 @@
       <ul class="manage-list" id="manage-rewards"></ul>
     </section>
 
-    <!-- Family Challenge -->
-    <section>
-      <h3>Family Challenge</h3>
-      <div class="form-row">
-        <input type="number" id="fc-target-input" placeholder="Target pts" min="1" style="max-width:110px">
-        <input type="text" id="fc-reward-input" placeholder="Reward description…">
-        <button class="btn btn-add" onclick="updateFamilyChallenge()">Set</button>
-      </div>
-      <button class="btn btn-reset" style="margin-top:6px" onclick="resetFamilyChallenge()">Reset Week</button>
-    </section>
-
-    <!-- Active Bounty -->
+<!-- Active Bounty -->
     <section id="bounty-section">
       <h3>🎯 Bounty Chores</h3>
       <p style="font-size:0.82rem;color:#8892b0;margin-bottom:12px">Post special one-time challenges. Either boy can claim — first to complete and get approval wins the reward.</p>
@@ -1857,20 +1825,6 @@ function getWeeklyPoints(kid) {
 }
 
 // ══════════════════════════════════════════
-//  FAMILY CHALLENGE
-// ══════════════════════════════════════════
-function getFamilyWeeklyPoints() {
-  const fc=state.familyChallenge; let total=0;
-  Object.keys(state.completions).forEach(d=>{
-    if(d<fc.weekStart)return;
-    ['wesley','wyatt'].forEach(kid=>{
-      const comps=state.completions[d]?.[kid]||{};
-      state.chores.filter(c=>(c.assignedTo==='both'||c.assignedTo===kid)&&isApprovedComp(comps[String(c.id)])).forEach(c=>{ const comp=comps[String(c.id)]; total+=(comp?.awardedPts??comp?.pts??c.points); });
-    });
-  });
-  return total;
-}
-
 // ══════════════════════════════════════════
 //  ACHIEVEMENTS
 // ══════════════════════════════════════════
@@ -2580,8 +2534,6 @@ function getAchievementProgress(kid, achId) {
   const kd = state.kids[kid];
   const streak = kd.streak || 0;
   const pts    = kd.totalPoints || 0;
-  const fc     = state.familyChallenge;
-  const weekPts = getFamilyWeeklyPoints();
   switch(achId) {
     case 'on_fire':      return { current: streak, goal: 3,  label: `Streak: ${streak} / 3 days` };
     case 'week_warrior': return { current: streak, goal: 7,  label: `Streak: ${streak} / 7 days` };
@@ -2596,7 +2548,7 @@ function getAchievementProgress(kid, achId) {
     case 'monthly_champ':return { current: null,  goal: null,  label: 'Better avg % than sibling this month' };
     case 'comeback_kid': return { current: null,  goal: null,  label: '100% after a zero-chore day' };
     case 'devil_dog':    return { current: null,  goal: null,  label: '100% every day of the month' };
-    case 'team_player':  return { current: weekPts, goal: fc.target, label: `Family pts this week: ${weekPts} / ${fc.target}` };
+    case 'team_player':  return { current: null, goal: null, label: 'Family teamwork badge' };
     default:             return { current: null,  goal: null,  label: '' };
   }
 }
@@ -2851,29 +2803,6 @@ function toggleDayChore(kid, dateStr, key, basePts, baseDollars) {
   render();
   // Re-render the modal in place
   showDayStats(dayStatsDate, dayStatsFocusKid);
-}
-
-function renderFamilyChallenge() {
-  const fc=state.familyChallenge, weekPts=getFamilyWeeklyPoints();
-  const pct=Math.min(100,Math.round((weekPts/fc.target)*100));
-  document.getElementById('fc-pts').textContent=weekPts;
-  document.getElementById('fc-target').textContent=fc.target;
-  document.getElementById('fc-reward-label').textContent=fc.reward||'';
-  document.getElementById('fc-bar').style.width=pct+'%';
-  const comp=document.getElementById('fc-completed');
-  if(fc.completed){comp.style.display='block';}
-  else{
-    comp.style.display='none';
-    if(weekPts>=fc.target){
-      state.familyChallenge.completed=true;
-      ['wesley','wyatt'].forEach(kid=>{
-        if(!state.kids[kid].achievements)state.kids[kid].achievements=[];
-        if(!state.kids[kid].achievements.includes('team_player'))state.kids[kid].achievements.push('team_player');
-      });
-      saveState(state); comp.style.display='block';
-      showToast('🏠 Family Challenge Complete! Amazing teamwork!');
-    }
-  }
 }
 
 function countSubmittedChores() {
@@ -3317,7 +3246,7 @@ function render() {
   renderKid('wesley'); renderKid('wyatt');
   renderAchievements('wesley'); renderAchievements('wyatt');
   renderWeeklyChart('wesley'); renderWeeklyChart('wyatt');
-  renderRewards(); renderFamilyChallenge(); updateParentBadge();
+  renderRewards(); updateParentBadge();
   renderH2H();
   renderBountyBanner();
   renderBounty(); // update parent panel bounty display
@@ -3841,22 +3770,6 @@ function approveJackpot(id){
 // ══════════════════════════════════════════
 //  FAMILY CHALLENGE CONTROLS
 // ══════════════════════════════════════════
-function updateFamilyChallenge(){
-  const t=parseInt(document.getElementById('fc-target-input').value);
-  const r=document.getElementById('fc-reward-input').value.trim();
-  if(!isNaN(t)&&t>0)state.familyChallenge.target=t;
-  if(r)state.familyChallenge.reward=r;
-  saveState(state);
-  document.getElementById('fc-target-input').value='';
-  document.getElementById('fc-reward-input').value='';
-  render(); showToast('Family Challenge updated!');
-}
-function resetFamilyChallenge(){
-  state.familyChallenge.weekStart=todayStr();
-  state.familyChallenge.completed=false;
-  saveState(state); render(); showToast('Family Challenge week reset!');
-}
-
 // ══════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════
