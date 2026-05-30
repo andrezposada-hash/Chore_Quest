@@ -166,6 +166,18 @@
   .chore-item.done .chore-name-text { text-decoration: line-through; }
   .chore-section-hdr { list-style: none; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #7b88b8; padding: 10px 4px 4px; margin-top: 4px; border-bottom: 1px solid rgba(255,255,255,0.06); }
   .chore-section-hdr:first-child { margin-top: 0; padding-top: 4px; }
+  /* Bounty chore card */
+  .bounty-chore-item { display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:12px; margin-bottom:6px; background:linear-gradient(135deg,rgba(249,212,35,0.12),rgba(255,78,80,0.08)); border:1px solid rgba(249,212,35,0.35); cursor:pointer; transition:background 0.15s,transform 0.1s; user-select:none; }
+  .bounty-chore-item:hover  { background:linear-gradient(135deg,rgba(249,212,35,0.2),rgba(255,78,80,0.14)); }
+  .bounty-chore-item:active { transform:scale(0.97); }
+  .bounty-chore-item.claimed-me   { cursor:default; opacity:0.7; }
+  .bounty-chore-item.claimed-them { cursor:default; opacity:0.45; }
+  .bounty-chore-icon { font-size:1.3rem; flex-shrink:0; }
+  .bounty-chore-info { flex:1; }
+  .bounty-chore-label { font-size:0.88rem; font-weight:700; color:#f9d423; }
+  .bounty-chore-sub   { font-size:0.72rem; color:#8892b0; margin-top:1px; }
+  .bounty-claim-btn   { background:linear-gradient(135deg,#f9d423,#ff4e50); color:#1a1a2e; font-weight:800; font-size:0.75rem; border:none; border-radius:8px; padding:5px 11px; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+  .bounty-pts-badge   { font-size:0.78rem; font-weight:800; color:#43e97b; white-space:nowrap; flex-shrink:0; }
   .dow-badge { font-size: 0.58rem; background: rgba(102,126,234,0.2); color: #a0aec8; border-radius: 4px; padding: 1px 5px; font-weight: 700; display: inline-block; margin-left: 4px; vertical-align: middle; letter-spacing: 0.03em; }
   .dow-picker { display: flex; gap: 3px; flex-wrap: wrap; width: 100%; margin-top: 4px; }
   .dow-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #7b88b8; border-radius: 5px; font-size: 0.62rem; font-weight: 700; padding: 3px 6px; cursor: pointer; transition: all 0.15s; }
@@ -1030,8 +1042,8 @@
 
     <!-- Active Bounty -->
     <section id="bounty-section">
-      <h3>🎯 Weekly Bounty</h3>
-      <p style="font-size:0.82rem;color:#8892b0;margin-bottom:12px">Set a one-time bonus for whoever wins the week's completion battle.</p>
+      <h3>🎯 Bounty Chore</h3>
+      <p style="font-size:0.82rem;color:#8892b0;margin-bottom:12px">Post a special one-time challenge. Either boy can claim it — first to complete it and get approval wins the XP.</p>
       <div id="bounty-active-display" style="display:none"></div>
       <div id="bounty-form">
         <div class="form-row">
@@ -1433,7 +1445,12 @@ function getState(rawData) {
     // avatar is optional — undefined means show default emoji
   });
 
-  if (!s.activeBounty)     s.activeBounty = null;
+  if (!s.activeBounty) s.activeBounty = null;
+  if (s.activeBounty && s.activeBounty.claimKid === undefined) {
+    s.activeBounty.claimKid    = null;
+    s.activeBounty.claimStatus = null;
+    s.activeBounty.claimDate   = null;
+  }
   if (!s.headToHeadLog)    s.headToHeadLog = {}; // { 'YYYY-MM-DD': { wesleyPct, wyattPct, winner } }
 
   // Migrate chores — add difficulty if missing, sync points to DIFF_PTS rule, default timeOfDay & daysOfWeek
@@ -1962,47 +1979,111 @@ function activateBounty() {
   const label = document.getElementById('bounty-label').value.trim();
   const pts   = parseInt(document.getElementById('bounty-pts').value) || 0;
   if (!label) return;
-  state.activeBounty = { label, pts, activatedAt: Date.now() };
+  state.activeBounty = {
+    label, pts, activatedAt: Date.now(),
+    claimKid: null,      // 'wesley' | 'wyatt' once claimed
+    claimStatus: null,   // 'submitted' | 'approved'
+  };
   document.getElementById('bounty-label').value = '';
   document.getElementById('bounty-pts').value   = '';
   saveState(state);
-  renderBounty();
+  renderBounty(); render();
   showToast(`🎯 Bounty activated: ${label}`);
 }
 function cancelBounty() {
   state.activeBounty = null;
   saveState(state);
-  renderBounty();
+  renderBounty(); render();
+}
+function claimBounty(kid) {
+  const b = state.activeBounty;
+  if (!b || b.claimKid) return; // already claimed
+  b.claimKid    = kid;
+  b.claimStatus = 'submitted';
+  b.claimDate   = todayStr();
+  // Award points provisionally (same as chore submission)
+  const pts = b.pts || 0;
+  if (pts > 0) {
+    b.claimSubmittedPts = pts;
+    state.kids[kid].totalPoints = (state.kids[kid].totalPoints || 0) + pts;
+  }
+  saveState(state);
+  renderBounty(); render();
+  const kidName = kid === 'wesley' ? 'Wesley' : 'Wyatt';
+  showToast(`🎯 Bounty claimed by ${kidName}! Waiting for parent approval.`);
+}
+function approveBountyClaim() {
+  const b = state.activeBounty;
+  if (!b || b.claimStatus !== 'submitted') return;
+  const kid = b.claimKid;
+  const pts = b.pts || 0;
+  // Points already provisionally awarded on claim — no extra needed
+  b.claimStatus = 'approved';
+  recalcMonthlyEarnings(kid);
+  checkAchievements(kid);
+  saveState(state);
+  renderBounty(); renderManageLists(); render();
+  const kidName = kid === 'wesley' ? 'Wesley' : 'Wyatt';
+  showToast(`🏆 Bounty approved! +${pts}pts for ${kidName}!`);
+}
+function denyBountyClaim() {
+  const b = state.activeBounty;
+  if (!b || b.claimStatus !== 'submitted') return;
+  const kid = b.claimKid;
+  // Reverse provisional points
+  const pts = b.claimSubmittedPts || 0;
+  if (pts > 0) state.kids[kid].totalPoints = Math.max(0, (state.kids[kid].totalPoints || 0) - pts);
+  // Reset claim so another kid can try
+  b.claimKid    = null;
+  b.claimStatus = null;
+  b.claimDate   = null;
+  b.claimSubmittedPts = 0;
+  saveState(state);
+  renderBounty(); renderManageLists(); render();
+  showToast(`↩ Bounty claim sent back — either kid can try again.`);
 }
 function renderBounty() {
-  const b     = state.activeBounty;
-  const disp  = document.getElementById('bounty-active-display');
-  const form  = document.getElementById('bounty-form');
+  const b    = state.activeBounty;
+  const disp = document.getElementById('bounty-active-display');
+  const form = document.getElementById('bounty-form');
   if (!disp || !form) return;
-  if (b) {
-    disp.style.display = 'block';
-    form.style.display = 'none';
-    disp.innerHTML = `<div style="background:rgba(249,212,35,0.1);border:1px solid rgba(249,212,35,0.3);border-radius:10px;padding:10px 14px;margin-bottom:10px">
-      <div style="font-weight:700;color:#f9d423">🎯 ${b.label}</div>
-      ${b.pts ? `<div style="font-size:0.78rem;color:#43e97b">+${b.pts} bonus XP to winner</div>` : ''}
-      <button class="del-btn" style="margin-top:8px;width:auto;padding:4px 10px;font-size:0.72rem" onclick="cancelBounty()">Cancel Bounty</button>
+  if (!b) { disp.style.display='none'; form.style.display='block'; return; }
+  disp.style.display = 'block';
+  form.style.display = 'none';
+  const kidName = b.claimKid === 'wesley' ? '🧑 Wesley' : b.claimKid === 'wyatt' ? '👦 Wyatt' : null;
+  let claimHTML = '';
+  if (b.claimStatus === 'submitted') {
+    claimHTML = `<div style="margin-top:10px;padding:8px 12px;background:rgba(255,200,50,0.1);border-radius:8px;border:1px solid rgba(255,200,50,0.3)">
+      <div style="font-size:0.8rem;color:#f9d423;font-weight:700">⏳ ${kidName} claimed this bounty!</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn-approve" onclick="approveBountyClaim()">✓ Approve (+${b.pts||0}pts)</button>
+        <button class="btn-deny"    onclick="denyBountyClaim()">✗ Send Back</button>
+      </div>
     </div>`;
+  } else if (b.claimStatus === 'approved') {
+    claimHTML = `<div style="margin-top:10px;font-size:0.8rem;color:#43e97b">✅ Claimed & approved by ${kidName}</div>`;
   } else {
-    disp.style.display = 'none';
-    form.style.display = 'block';
+    claimHTML = `<div style="margin-top:6px;font-size:0.78rem;color:#8892b0">Open to any kid — first to claim it wins.</div>`;
   }
+  disp.innerHTML = `<div style="background:rgba(249,212,35,0.1);border:1px solid rgba(249,212,35,0.3);border-radius:10px;padding:10px 14px;margin-bottom:10px">
+    <div style="font-weight:700;color:#f9d423">🎯 ${b.label}</div>
+    ${b.pts ? `<div style="font-size:0.78rem;color:#43e97b">+${b.pts} XP</div>` : ''}
+    ${claimHTML}
+    ${b.claimStatus !== 'approved' ? `<button class="del-btn" style="margin-top:10px;width:auto;padding:4px 10px;font-size:0.72rem" onclick="cancelBounty()">Cancel Bounty</button>` : `<button class="btn btn-reset" style="margin-top:10px;font-size:0.72rem;padding:4px 10px" onclick="cancelBounty()">Clear</button>`}
+  </div>`;
 }
 function renderBountyBanner() {
-  const b   = state.activeBounty;
-  const el  = document.getElementById('bounty-banner');
+  const b  = state.activeBounty;
+  const el = document.getElementById('bounty-banner');
   if (!el) return;
-  if (b) {
-    el.style.display = 'block';
-    document.getElementById('bounty-banner-label').textContent = b.label;
-    document.getElementById('bounty-banner-pts').textContent   = b.pts ? `+${b.pts} XP to the winner` : '';
-  } else {
-    el.style.display = 'none';
-  }
+  if (!b || b.claimStatus === 'approved') { el.style.display='none'; return; }
+  el.style.display = 'block';
+  const claimerName = b.claimKid === 'wesley' ? 'Wesley' : b.claimKid === 'wyatt' ? 'Wyatt' : null;
+  const statusLine = b.claimStatus === 'submitted'
+    ? `⏳ ${claimerName} submitted — awaiting parent approval`
+    : b.pts ? `+${b.pts} XP — first to claim wins!` : 'First to claim wins!';
+  document.getElementById('bounty-banner-label').textContent = b.label;
+  document.getElementById('bounty-banner-pts').textContent   = statusLine;
 }
 
 // ══════════════════════════════════════════
@@ -2269,6 +2350,35 @@ function renderKid(kid) {
       list.appendChild(li);
     }); // end sectionChores.forEach
   }); // end TIME_SECTIONS.forEach
+
+  // ── Bounty chore card ──────────────────────────────────────────────────
+  const b = state.activeBounty;
+  if (b && b.claimStatus !== 'approved') {
+    const myList = document.getElementById(`chores-${kid}`);
+    const bountyLi = document.createElement('li');
+    const iClaimedIt   = b.claimKid === kid    && b.claimStatus === 'submitted';
+    const siblingGot   = b.claimKid && b.claimKid !== kid;
+    bountyLi.className = 'bounty-chore-item' + (iClaimedIt ? ' claimed-me' : siblingGot ? ' claimed-them' : '');
+    const ptsLabel = b.pts ? `+${b.pts} XP` : '';
+    let rightEl = '';
+    if (iClaimedIt) {
+      rightEl = `<span class="bounty-pts-badge">⏳ Pending</span>`;
+    } else if (siblingGot) {
+      const sName = b.claimKid === 'wesley' ? 'Wesley' : 'Wyatt';
+      rightEl = `<span style="font-size:0.72rem;color:#8892b0">⏳ ${sName} claimed it</span>`;
+    } else {
+      rightEl = `<button class="bounty-claim-btn" onclick="event.stopPropagation();claimBounty('${kid}')">🎯 Claim It!</button>`;
+    }
+    bountyLi.innerHTML = `
+      <div class="bounty-chore-icon">🎯</div>
+      <div class="bounty-chore-info">
+        <div class="bounty-chore-label">${b.label}</div>
+        <div class="bounty-chore-sub">Bounty${ptsLabel ? ' · ' + ptsLabel : ''}</div>
+      </div>
+      ${rightEl}`;
+    if (!b.claimKid) bountyLi.addEventListener('click', () => claimBounty(kid));
+    if (myList) myList.appendChild(bountyLi);
+  }
 
   const anyDone=chores.some(c=>isApprovedComp(comps[String(c.id)]));
   const allDone=chores.length>0&&chores.every(c=>isApprovedComp(comps[String(c.id)]));
