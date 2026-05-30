@@ -1092,16 +1092,16 @@
 
     <!-- Active Bounty -->
     <section id="bounty-section">
-      <h3>🎯 Bounty Chore</h3>
-      <p style="font-size:0.82rem;color:#8892b0;margin-bottom:12px">Post a special one-time challenge. Either boy can claim it — first to complete it and get approval wins the XP.</p>
-      <div id="bounty-active-display" style="display:none"></div>
-      <div id="bounty-form">
+      <h3>🎯 Bounty Chores</h3>
+      <p style="font-size:0.82rem;color:#8892b0;margin-bottom:12px">Post special one-time challenges. Either boy can claim — first to complete and get approval wins the reward.</p>
+      <div id="bounty-form" style="margin-bottom:14px">
         <div class="form-row">
-          <input type="text"   id="bounty-label"  placeholder="Reward description…" style="flex:2">
+          <input type="text"   id="bounty-label"  placeholder="Challenge description…" style="flex:2">
           <input type="number" id="bounty-dollars" placeholder="$ Reward" min="0" step="0.25" style="width:100px">
         </div>
-        <button class="btn btn-add" onclick="activateBounty()">Activate Bounty</button>
+        <button class="btn btn-add" onclick="activateBounty()">+ Add Bounty</button>
       </div>
+      <div id="bounty-list"></div>
     </section>
 
     <!-- Monthly Earnings Cap -->
@@ -1496,19 +1496,19 @@ function getState(rawData) {
     // avatar is optional — undefined means show default emoji
   });
 
-  if (!s.activeBounty) s.activeBounty = null;
-  if (s.activeBounty) {
-    if (s.activeBounty.claimKid === undefined) {
-      s.activeBounty.claimKid    = null;
-      s.activeBounty.claimStatus = null;
-      s.activeBounty.claimDate   = null;
+  // Migrate single activeBounty → activeBounties array
+  if (!s.activeBounties) {
+    s.activeBounties = [];
+    if (s.activeBounty) {
+      const b = s.activeBounty;
+      if (b.pts !== undefined && b.dollars === undefined) { b.dollars = 0; delete b.pts; }
+      if (b.claimKid === undefined) { b.claimKid = null; b.claimStatus = null; b.claimDate = null; }
+      if (!b.id) b.id = String(Date.now());
+      s.activeBounties.push(b);
     }
-    // Migrate old pts-based bounties to dollars
-    if (s.activeBounty.pts !== undefined && s.activeBounty.dollars === undefined) {
-      s.activeBounty.dollars = 0;
-      delete s.activeBounty.pts;
-    }
+    delete s.activeBounty;
   }
+  s.activeBounties.forEach((b,i) => { if (!b.id) b.id = String(Date.now() + i); });
   if (!s.headToHeadLog)    s.headToHeadLog = {}; // { 'YYYY-MM-DD': { wesleyPct, wyattPct, winner } }
 
   // Migrate chores — add difficulty if missing, sync points to DIFF_PTS rule, default timeOfDay & daysOfWeek
@@ -2042,38 +2042,47 @@ function renderH2H() {
 function activateBounty() {
   const label = document.getElementById('bounty-label').value.trim();
   const dollars = round2(parseFloat(document.getElementById('bounty-dollars').value) || 0);
-  if (!label) return;
-  state.activeBounty = {
+  if (!label) { showToast('Enter a challenge description first.'); return; }
+  if (!state.activeBounties) state.activeBounties = [];
+  state.activeBounties.push({
+    id: String(Date.now()),
     label, dollars, activatedAt: Date.now(),
-    claimKid: null,      // 'wesley' | 'wyatt' once claimed
-    claimStatus: null,   // 'submitted' | 'approved'
-  };
+    claimKid: null,
+    claimStatus: null,
+    claimDate: null,
+    claimSubmittedDollars: 0,
+  });
   document.getElementById('bounty-label').value   = '';
   document.getElementById('bounty-dollars').value = '';
   saveState(state);
   renderBounty(); render();
-  showToast(`🎯 Bounty activated: ${label}`);
+  showToast(`🎯 Bounty posted: ${label}`);
 }
-function cancelBounty() {
-  const b = state.activeBounty;
-  if (b && b.claimStatus === 'submitted') {
-    const kid     = b.claimKid;
+function cancelBounty(id) {
+  if (!state.activeBounties) return;
+  const idx = state.activeBounties.findIndex(b => b.id === id);
+  if (idx === -1) return;
+  const b = state.activeBounties[idx];
+  // Reverse provisional dollars if claim was in-flight
+  if (b.claimStatus === 'submitted') {
+    const kid = b.claimKid;
     const dollars = b.claimSubmittedDollars || 0;
     if (kid && dollars > 0) {
       state.kids[kid].bonusBalance = round2(Math.max(0, (state.kids[kid].bonusBalance || 0) - dollars));
     }
   }
-  state.activeBounty = null;
+  state.activeBounties.splice(idx, 1);
   saveState(state);
   renderBounty(); render();
 }
-function claimBounty(kid) {
-  const b = state.activeBounty;
+function claimBounty(kid, id) {
+  if (!state.activeBounties) return;
+  const b = state.activeBounties.find(x => x.id === id);
   if (!b || b.claimKid) return; // already claimed
   b.claimKid    = kid;
   b.claimStatus = 'submitted';
   b.claimDate   = todayStr();
-  // Award to bonus wallet — never touches the $40 chore cap
+  // Provisionally award to bonus wallet
   const dollars = b.dollars || 0;
   if (dollars > 0) {
     b.claimSubmittedDollars = dollars;
@@ -2084,8 +2093,9 @@ function claimBounty(kid) {
   const kidName = kid === 'wesley' ? 'Wesley' : 'Wyatt';
   showToast(`🎯 Bounty claimed by ${kidName}! Waiting for parent approval.`);
 }
-function approveBountyClaim() {
-  const b = state.activeBounty;
+function approveBountyClaim(id) {
+  if (!state.activeBounties) return;
+  const b = state.activeBounties.find(x => x.id === id);
   if (!b || b.claimStatus !== 'submitted') return;
   const kid     = b.claimKid;
   const dollars = b.claimSubmittedDollars || b.dollars || 0;
@@ -2097,8 +2107,9 @@ function approveBountyClaim() {
   const kidName = kid === 'wesley' ? 'Wesley' : 'Wyatt';
   showToast(`🏆 Bounty approved! ${fmt$(dollars)} for ${kidName}!`);
 }
-function denyBountyClaim() {
-  const b = state.activeBounty;
+function denyBountyClaim(id) {
+  if (!state.activeBounties) return;
+  const b = state.activeBounties.find(x => x.id === id);
   if (!b || b.claimStatus !== 'submitted') return;
   const kid     = b.claimKid;
   const dollars = b.claimSubmittedDollars || 0;
@@ -2107,56 +2118,67 @@ function denyBountyClaim() {
     state.kids[kid].bonusBalance = round2(Math.max(0, (state.kids[kid].bonusBalance || 0) - dollars));
   }
   // Reset claim so either kid can try again
-  b.claimKid             = null;
-  b.claimStatus          = null;
-  b.claimDate            = null;
+  b.claimKid              = null;
+  b.claimStatus           = null;
+  b.claimDate             = null;
   b.claimSubmittedDollars = 0;
   saveState(state);
   renderBounty(); renderManageLists(); render();
   showToast(`↩ Bounty claim sent back — either kid can try again.`);
 }
 function renderBounty() {
-  const b    = state.activeBounty;
-  const disp = document.getElementById('bounty-active-display');
-  const form = document.getElementById('bounty-form');
-  if (!disp || !form) return;
-  if (!b) { disp.style.display='none'; form.style.display='block'; return; }
-  disp.style.display = 'block';
-  form.style.display = 'none';
-  const kidName = b.claimKid === 'wesley' ? '🧑 Wesley' : b.claimKid === 'wyatt' ? '👦 Wyatt' : null;
-  let claimHTML = '';
-  if (b.claimStatus === 'submitted') {
-    claimHTML = `<div style="margin-top:10px;padding:8px 12px;background:rgba(255,200,50,0.1);border-radius:8px;border:1px solid rgba(255,200,50,0.3)">
-      <div style="font-size:0.8rem;color:#f9d423;font-weight:700">⏳ ${kidName} claimed this bounty!</div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn-approve" onclick="approveBountyClaim()">✓ Approve (${fmt$(b.dollars||0)})</button>
-        <button class="btn-deny"    onclick="denyBountyClaim()">✗ Send Back</button>
+  const list = document.getElementById('bounty-list');
+  if (!list) return;
+  const bounties = state.activeBounties || [];
+  if (!bounties.length) { list.innerHTML = '<p style="font-size:0.8rem;color:#8892b0;margin-top:4px">No active bounties.</p>'; return; }
+  list.innerHTML = bounties.map(b => {
+    const kidName = b.claimKid === 'wesley' ? '🧑 Wesley' : b.claimKid === 'wyatt' ? '👦 Wyatt' : null;
+    let claimHTML = '';
+    if (b.claimStatus === 'submitted') {
+      claimHTML = `<div style="margin-top:8px;padding:8px 10px;background:rgba(255,200,50,0.1);border-radius:8px;border:1px solid rgba(255,200,50,0.3)">
+        <div style="font-size:0.78rem;color:#f9d423;font-weight:700">⏳ ${kidName} claimed this!</div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="btn-approve" onclick="approveBountyClaim('${b.id}')">✓ Approve (${fmt$(b.dollars||0)})</button>
+          <button class="btn-deny"    onclick="denyBountyClaim('${b.id}')">✗ Send Back</button>
+        </div>
+      </div>`;
+    } else if (b.claimStatus === 'approved') {
+      claimHTML = `<div style="margin-top:6px;font-size:0.78rem;color:#43e97b">✅ Approved — ${kidName}</div>`;
+    } else {
+      claimHTML = `<div style="margin-top:4px;font-size:0.75rem;color:#8892b0">Open — first to claim wins.</div>`;
+    }
+    const cancelLabel = b.claimStatus === 'approved' ? 'Clear' : 'Cancel';
+    return `<div style="background:rgba(249,212,35,0.08);border:1px solid rgba(249,212,35,0.25);border-radius:10px;padding:10px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-weight:700;color:#f9d423">🎯 ${b.label}</div>
+          ${b.dollars ? `<div style="font-size:0.75rem;color:#43e97b">${fmt$(b.dollars)} reward</div>` : ''}
+        </div>
+        <button class="del-btn" style="width:auto;padding:3px 9px;font-size:0.7rem;margin-left:8px;flex-shrink:0" onclick="cancelBounty('${b.id}')">${cancelLabel}</button>
       </div>
+      ${claimHTML}
     </div>`;
-  } else if (b.claimStatus === 'approved') {
-    claimHTML = `<div style="margin-top:10px;font-size:0.8rem;color:#43e97b">✅ Claimed & approved by ${kidName}</div>`;
-  } else {
-    claimHTML = `<div style="margin-top:6px;font-size:0.78rem;color:#8892b0">Open to any kid — first to claim it wins.</div>`;
-  }
-  disp.innerHTML = `<div style="background:rgba(249,212,35,0.1);border:1px solid rgba(249,212,35,0.3);border-radius:10px;padding:10px 14px;margin-bottom:10px">
-    <div style="font-weight:700;color:#f9d423">🎯 ${b.label}</div>
-    ${b.dollars ? `<div style="font-size:0.78rem;color:#43e97b">${fmt$(b.dollars)} reward</div>` : ''}
-    ${claimHTML}
-    ${b.claimStatus !== 'approved' ? `<button class="del-btn" style="margin-top:10px;width:auto;padding:4px 10px;font-size:0.72rem" onclick="cancelBounty()">Cancel Bounty</button>` : `<button class="btn btn-reset" style="margin-top:10px;font-size:0.72rem;padding:4px 10px" onclick="cancelBounty()">Clear</button>`}
-  </div>`;
+  }).join('');
 }
 function renderBountyBanner() {
-  const b  = state.activeBounty;
   const el = document.getElementById('bounty-banner');
   if (!el) return;
-  if (!b || b.claimStatus === 'approved') { el.style.display='none'; return; }
+  const bounties = (state.activeBounties || []).filter(b => b.claimStatus !== 'approved');
+  if (!bounties.length) { el.style.display='none'; return; }
   el.style.display = 'block';
-  const claimerName = b.claimKid === 'wesley' ? 'Wesley' : b.claimKid === 'wyatt' ? 'Wyatt' : null;
-  const statusLine = b.claimStatus === 'submitted'
-    ? `⏳ ${claimerName} submitted — awaiting parent approval`
-    : b.dollars ? `${fmt$(b.dollars)} — first to claim wins!` : 'First to claim wins!';
-  document.getElementById('bounty-banner-label').textContent = b.label;
-  document.getElementById('bounty-banner-pts').textContent   = statusLine;
+  if (bounties.length === 1) {
+    const b = bounties[0];
+    const claimerName = b.claimKid === 'wesley' ? 'Wesley' : b.claimKid === 'wyatt' ? 'Wyatt' : null;
+    const statusLine = b.claimStatus === 'submitted'
+      ? `⏳ ${claimerName} submitted — awaiting parent approval`
+      : b.dollars ? `${fmt$(b.dollars)} — first to claim wins!` : 'First to claim wins!';
+    document.getElementById('bounty-banner-label').textContent = b.label;
+    document.getElementById('bounty-banner-pts').textContent   = statusLine;
+  } else {
+    const pending = bounties.filter(b => b.claimStatus === 'submitted').length;
+    document.getElementById('bounty-banner-label').textContent = `${bounties.length} Active Bounties`;
+    document.getElementById('bounty-banner-pts').textContent   = pending ? `${pending} awaiting approval` : 'First to claim each one wins!';
+  }
 }
 
 // ══════════════════════════════════════════
@@ -2431,13 +2453,13 @@ function renderKid(kid) {
     }); // end sectionChores.forEach
   }); // end TIME_SECTIONS.forEach
 
-  // ── Bounty chore card ──────────────────────────────────────────────────
-  const b = state.activeBounty;
-  if (b && b.claimStatus !== 'approved') {
-    const myList = document.getElementById(`chores-${kid}`);
+  // ── Bounty chore cards ──────────────────────────────────────────────────
+  const myList = document.getElementById(`chores-${kid}`);
+  (state.activeBounties || []).forEach(b => {
+    if (b.claimStatus === 'approved') return; // hide completed bounties
     const bountyLi = document.createElement('li');
-    const iClaimedIt   = b.claimKid === kid    && b.claimStatus === 'submitted';
-    const siblingGot   = b.claimKid && b.claimKid !== kid;
+    const iClaimedIt = b.claimKid === kid && b.claimStatus === 'submitted';
+    const siblingGot = b.claimKid && b.claimKid !== kid;
     bountyLi.className = 'bounty-chore-item' + (iClaimedIt ? ' claimed-me' : siblingGot ? ' claimed-them' : '');
     const ptsLabel = b.dollars ? `+${fmt$(b.dollars)}` : '';
     let rightEl = '';
@@ -2447,7 +2469,7 @@ function renderKid(kid) {
       const sName = b.claimKid === 'wesley' ? 'Wesley' : 'Wyatt';
       rightEl = `<span style="font-size:0.72rem;color:#8892b0">⏳ ${sName} claimed it</span>`;
     } else {
-      rightEl = `<button class="bounty-claim-btn" onclick="event.stopPropagation();claimBounty('${kid}')">🎯 Claim It!</button>`;
+      rightEl = `<button class="bounty-claim-btn" onclick="event.stopPropagation();claimBounty('${kid}','${b.id}')">🎯 Claim It!</button>`;
     }
     bountyLi.innerHTML = `
       <div class="bounty-chore-icon">🎯</div>
@@ -2456,9 +2478,9 @@ function renderKid(kid) {
         <div class="bounty-chore-sub">Bounty${ptsLabel ? ' · ' + ptsLabel : ''}</div>
       </div>
       ${rightEl}`;
-    if (!b.claimKid) bountyLi.addEventListener('click', () => claimBounty(kid));
+    if (!b.claimKid) bountyLi.addEventListener('click', () => claimBounty(kid, b.id));
     if (myList) myList.appendChild(bountyLi);
-  }
+  });
 
   const anyDone=chores.some(c=>isApprovedComp(comps[String(c.id)]));
   const allDone=chores.length>0&&chores.every(c=>isApprovedComp(comps[String(c.id)]));
