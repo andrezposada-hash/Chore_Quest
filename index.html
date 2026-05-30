@@ -372,6 +372,57 @@
   .modal section { margin-bottom: 22px; }
   .modal section h3 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 1px; color: #8892b0; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
 
+  /* ── Rank Sheet (bottom sheet) ── */
+  #rank-sheet-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:200; align-items:flex-end; justify-content:center; }
+  #rank-sheet-overlay.open { display:flex; }
+  .rank-sheet {
+    background: linear-gradient(160deg,#1a1a2e,#16213e);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-bottom: none;
+    border-radius: 24px 24px 0 0;
+    padding: 20px 20px 36px;
+    width: 100%; max-width: 540px;
+    max-height: 82vh; overflow-y: auto;
+    animation: slideUp 0.28s cubic-bezier(0.34,1.3,0.64,1);
+  }
+  @keyframes slideUp { from { transform: translateY(60px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+  .rank-sheet-handle { width:40px;height:4px;background:rgba(255,255,255,0.18);border-radius:99px;margin:0 auto 16px; }
+  .rank-sheet-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .rank-sheet-avatar { width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0; }
+  .rank-sheet-avatar.wesley { background:linear-gradient(135deg,#667eea,#764ba2); }
+  .rank-sheet-avatar.wyatt  { background:linear-gradient(135deg,#f093fb,#f5576c); }
+  .rank-sheet-title { font-size:1.1rem;font-weight:800;color:#fff; }
+  .rank-sheet-sub   { font-size:0.75rem;color:#8892b0;margin-top:2px; }
+  .rank-next-bar { margin-bottom:18px; }
+  .rank-next-label { display:flex;justify-content:space-between;font-size:0.72rem;color:#8892b0;margin-bottom:5px; }
+  .rank-next-bg { height:7px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden; }
+  .rank-next-fill { height:100%;border-radius:99px;transition:width 0.5s ease; }
+  .rank-next-fill.wesley { background:linear-gradient(90deg,#667eea,#f9d423); }
+  .rank-next-fill.wyatt  { background:linear-gradient(90deg,#f093fb,#f9d423); }
+  .rank-ladder { display:flex;flex-direction:column;gap:3px; }
+  .rank-row {
+    display:grid; grid-template-columns:28px 1fr auto;
+    align-items:center; gap:10px;
+    padding:7px 10px; border-radius:10px;
+    font-size:0.8rem; color:rgba(255,255,255,0.35);
+    transition: background 0.15s;
+  }
+  .rank-row.unlocked { color:rgba(255,255,255,0.65); }
+  .rank-row.current-rank {
+    background: rgba(249,212,35,0.12);
+    border: 1px solid rgba(249,212,35,0.3);
+    color: #fff;
+  }
+  .rank-row-icon { font-size:1.1rem; text-align:center; }
+  .rank-row-name { font-weight:600; }
+  .rank-row-abbr { font-size:0.68rem; color:#8892b0; margin-top:1px; }
+  .rank-row.current-rank .rank-row-abbr { color:#f9d423; }
+  .rank-row-pts { font-size:0.7rem; white-space:nowrap; text-align:right; }
+  .rank-current-tag { font-size:0.62rem;font-weight:900;background:#f9d423;color:#1a1a2e;border-radius:99px;padding:1px 6px;margin-left:6px;vertical-align:middle; }
+  .xp-bar-bg.clickable, .level-badge.clickable { cursor:pointer; }
+  .xp-bar-bg.clickable:hover .xp-bar-fill { filter:brightness(1.2); }
+  .level-badge.clickable:hover { background:rgba(249,212,35,0.2); }
+
   .form-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
   .form-row input, .form-row select { flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 9px 12px; color: #fff; font-size: 0.88rem; min-width: 70px; }
   .form-row input::placeholder { color: #5a6480; }
@@ -598,7 +649,7 @@
       <input type="file" id="avatar-input-wesley" accept="image/*" style="display:none" onchange="uploadAvatar('wesley',this)">
       <div class="kid-info">
         <h2 class="kid-name-tap" onclick="openTrophyRoom('wesley')" title="Tap to open Trophy Room">Wesley 🏆</h2>
-        <div class="level-badge" id="level-wesley">⭐ Beginner</div>
+        <div class="level-badge clickable" id="level-wesley" onclick="openRankSheet('wesley')" title="View rank ladder">⭐ Beginner</div>
       </div>
     </div>
     <div class="points-row">
@@ -648,7 +699,7 @@
       <span id="xp-label-wesley">XP Progress</span>
       <span id="xp-pct-wesley">0%</span>
     </div>
-    <div class="xp-bar-bg">
+    <div class="xp-bar-bg clickable" onclick="openRankSheet('wesley')" title="View rank ladder">
       <div class="xp-bar-fill wesley" id="xp-bar-wesley" style="width:0%"></div>
     </div>
     <div class="achievements-row" id="achievements-wesley"></div>
@@ -771,7 +822,7 @@
       <input type="file" id="avatar-input-wyatt" accept="image/*" style="display:none" onchange="uploadAvatar('wyatt',this)">
       <div class="kid-info">
         <h2 class="kid-name-tap" onclick="openTrophyRoom('wyatt')" title="Tap to open Trophy Room">Wyatt 🏆</h2>
-        <div class="level-badge" id="level-wyatt">⭐ Beginner</div>
+        <div class="level-badge clickable" id="level-wyatt" onclick="openRankSheet('wyatt')" title="View rank ladder">⭐ Beginner</div>
       </div>
     </div>
     <div class="points-row">
@@ -821,7 +872,7 @@
       <span id="xp-label-wyatt">XP Progress</span>
       <span id="xp-pct-wyatt">0%</span>
     </div>
-    <div class="xp-bar-bg">
+    <div class="xp-bar-bg clickable" onclick="openRankSheet('wyatt')" title="View rank ladder">
       <div class="xp-bar-fill wyatt" id="xp-bar-wyatt" style="width:0%"></div>
     </div>
     <div class="achievements-row" id="achievements-wyatt"></div>
@@ -3807,6 +3858,78 @@ function resetFamilyChallenge(){
 // ══════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  RANK SHEET
+// ══════════════════════════════════════════
+function openRankSheet(kid) {
+  const totalPts = state.kids[kid].totalPoints || 0;
+  const { cur, next, curIdx, prestige, effectivePts } = getRankInfo(totalPts);
+  const kidName = kid === 'wesley' ? 'Wesley' : 'Wyatt';
+  const kidEmoji = kid === 'wesley' ? '🧑' : '👦';
+
+  // Header
+  const avatarEl = document.getElementById('rank-sheet-avatar');
+  avatarEl.className = `rank-sheet-avatar ${kid}`;
+  const avatarData = state.kids[kid].avatarDataUrl;
+  avatarEl.innerHTML = avatarData ? `<img src="${avatarData}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : kidEmoji;
+
+  document.getElementById('rank-sheet-title').textContent = kidName + ''s Rank Ladder';
+  const presLabel = prestige > 0 ? ` · 🦅 Prestige ${toRoman(prestige)}` : '';
+  document.getElementById('rank-sheet-sub').textContent = `${totalPts.toLocaleString()} total XP${presLabel}`;
+
+  // Progress bar to next rank
+  const nextBarEl = document.getElementById('rank-next-bar');
+  if (next) {
+    const range = next.min - cur.min;
+    const progress = effectivePts - cur.min;
+    const pct = Math.round((progress / range) * 100);
+    nextBarEl.innerHTML = `
+      <div class="rank-next-label">
+        <span>Progress to <strong>${next.abbr}</strong></span>
+        <span>${progress.toLocaleString()} / ${range.toLocaleString()} XP</span>
+      </div>
+      <div class="rank-next-bg">
+        <div class="rank-next-fill ${kid}" style="width:${pct}%"></div>
+      </div>`;
+  } else {
+    const prestigeLabel = prestige > 0 ? `Prestige ${toRoman(prestige)} ` : '';
+    nextBarEl.innerHTML = `<div style="text-align:center;color:#f9d423;font-weight:700;font-size:0.85rem">🦅 ${prestigeLabel}MAX RANK — Elite status achieved!</div>`;
+  }
+
+  // Rank ladder list
+  const RANK_ICONS = ['🔘','⭐','⭐','🌟','🌟','🎖️','🎖️','🎖️','🎗️','🎗️','🎗️','🎗️','🎗️','🏅','🏅','🏅','🏅','🏅','🥈','🥈','🥇','🥇','🥇','🥇','💎','💎','💎','💎','👑'];
+  const ladderEl = document.getElementById('rank-ladder-list');
+  ladderEl.innerHTML = LEVELS.map((lvl, i) => {
+    const isCurrent = i === curIdx;
+    const isUnlocked = effectivePts >= lvl.min;
+    const nextMin = LEVELS[i + 1] ? LEVELS[i + 1].min : PRESTIGE_MAX;
+    const icon = RANK_ICONS[i] || '⭐';
+    const rowClass = isCurrent ? 'rank-row current-rank' : isUnlocked ? 'rank-row unlocked' : 'rank-row';
+    const currentTag = isCurrent ? `<span class="rank-current-tag">YOU ARE HERE</span>` : '';
+    return `<div class="${rowClass}">
+      <div class="rank-row-icon">${icon}</div>
+      <div>
+        <div class="rank-row-name">${lvl.name}${currentTag}</div>
+        <div class="rank-row-abbr">${lvl.abbr}</div>
+      </div>
+      <div class="rank-row-pts">${lvl.min.toLocaleString()} XP</div>
+    </div>`;
+  }).join('');
+
+  // Scroll current rank into view after render
+  const ov = document.getElementById('rank-sheet-overlay');
+  ov.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  requestAnimationFrame(() => {
+    const cur = ladderEl.querySelector('.current-rank');
+    if (cur) cur.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+}
+function closeRankSheet() {
+  document.getElementById('rank-sheet-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
 function closeOverlay(id){
   document.getElementById(id).classList.remove('open');
   // Re-enable body scroll if no other overlays are open
@@ -3836,6 +3959,10 @@ document.getElementById('pin-input').addEventListener('keydown',e=>{if(e.key==='
   });
 });
 document.getElementById('levelup-overlay').addEventListener('click',function(){this.style.display='none';});
+// Rank sheet — tap backdrop to close
+document.getElementById('rank-sheet-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeRankSheet();
+});
 
 // ══════════════════════════════════════════
 //  INIT — Firebase real-time sync
@@ -3933,6 +4060,22 @@ firebase.database().ref('.info/connected').on('value', snap => {
     <div class="tip-progress-bar-fill" id="tip-bar-fill" style="width:0%"></div>
   </div>
   <div class="tip-status" id="tip-status"></div>
+</div>
+
+<!-- Rank Sheet Bottom-Sheet Overlay -->
+<div id="rank-sheet-overlay">
+  <div class="rank-sheet" id="rank-sheet-body">
+    <div class="rank-sheet-handle"></div>
+    <div class="rank-sheet-header">
+      <div class="rank-sheet-avatar" id="rank-sheet-avatar"></div>
+      <div>
+        <div class="rank-sheet-title" id="rank-sheet-title"></div>
+        <div class="rank-sheet-sub"   id="rank-sheet-sub"></div>
+      </div>
+    </div>
+    <div class="rank-next-bar" id="rank-next-bar"></div>
+    <div class="rank-ladder"   id="rank-ladder-list"></div>
+  </div>
 </div>
 </body>
 </html>
