@@ -3248,6 +3248,11 @@ function checkPin(){
   if(mode==='uncheck'&&pendingUncheck){
     const {kid,choreId,points,isBonus}=pendingUncheck; pendingUncheck=null;
     doUncheck(kid,choreId,points,isBonus);
+  }else if(mode==='trophydelete'&&pendingTrophyDelete){
+    const {kid,idx}=pendingTrophyDelete; pendingTrophyDelete=null;
+    trophyRoomKid=kid;
+    deleteTrophyReward(idx);
+    openOverlay('trophy-room-overlay');
   }else if(mode==='dayedit'){
     dayStatsEditMode=true;
     showDayStats(dayStatsDate, dayStatsFocusKid);
@@ -3257,7 +3262,7 @@ function checkPin(){
     openOverlay('parent-overlay');
   }
 }
-function cancelPin(){pendingUncheck=null;closeOverlay('pin-overlay');}
+function cancelPin(){pendingUncheck=null;pendingTrophyDelete=null;closeOverlay('pin-overlay');}
 function changePin(){
   const v=document.getElementById('new-pin').value.trim();
   if(!/^\d{4}$/.test(v)){alert('PIN must be exactly 4 digits.');return;}
@@ -3384,7 +3389,19 @@ function deleteReward(id){
 // ══════════════════════════════════════════
 //  TROPHY ROOM
 // ══════════════════════════════════════════
-let trophyRoomKid = null; // track which kid's room is open
+let trophyRoomKid = null;      // track which kid's room is open
+let pendingTrophyDelete = null; // { kid, idx } waiting for PIN
+
+function requestDeleteTrophyReward(idx) {
+  pendingTrophyDelete = { kid: trophyRoomKid, idx };
+  const ov = document.getElementById('pin-overlay');
+  ov.dataset.mode = 'trophydelete';
+  document.getElementById('pin-context-msg').textContent = 'Enter parent PIN to remove this reward.';
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-error').textContent = '';
+  openOverlay('pin-overlay');
+  setTimeout(() => document.getElementById('pin-input').focus(), 100);
+}
 
 function deleteTrophyReward(idx) {
   const kid = trophyRoomKid;
@@ -3449,7 +3466,7 @@ function openTrophyRoom(kid) {
           <div class="trophy-reward-meta">${date}</div>
         </div>
         <div class="trophy-reward-cost">${costStr}</div>
-        <button class="del-btn" style="margin-left:6px;flex-shrink:0" onclick="deleteTrophyReward(${idx})">🗑</button>`;
+        <button class="del-btn" style="margin-left:6px;flex-shrink:0" onclick="requestDeleteTrophyReward(${idx})">🗑</button>`;
       list.appendChild(div);
     });
   }
